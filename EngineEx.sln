@@ -1,0 +1,44 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Loader", "Loader\Loader.vcxproj", "{5A97F3A4-40BD-42CF-AAB2-36DF5E92DE54}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Core", "Core\Core.vcxproj", "{FD9BBC21-D359-4B77-908B-306B0A833CBC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "App", "App\App.vcxproj", "{FD9BBC21-D359-4B77-908B-306B0A833CAB}"
+	ProjectSection(ProjectDependencies) = postProject
+		{FD9BBC21-D359-4B77-908B-306B0A833CBC} = {FD9BBC21-D359-4B77-908B-306B0A833CBC}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Build FOnlineDir|x86 = Build FOnlineDir|x86
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5A97F3A4-40BD-42CF-AAB2-36DF5E92DE54}.Build FOnlineDir|x86.ActiveCfg = Build FOnlineDir|Win32
+		{5A97F3A4-40BD-42CF-AAB2-36DF5E92DE54}.Build FOnlineDir|x86.Build.0 = Build FOnlineDir|Win32
+		{5A97F3A4-40BD-42CF-AAB2-36DF5E92DE54}.Debug|x86.ActiveCfg = Debug|Win32
+		{5A97F3A4-40BD-42CF-AAB2-36DF5E92DE54}.Debug|x86.Build.0 = Debug|Win32
+		{5A97F3A4-40BD-42CF-AAB2-36DF5E92DE54}.Release|x86.ActiveCfg = Release|Win32
+		{5A97F3A4-40BD-42CF-AAB2-36DF5E92DE54}.Release|x86.Build.0 = Release|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CBC}.Build FOnlineDir|x86.ActiveCfg = Build FOnlineDir|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CBC}.Build FOnlineDir|x86.Build.0 = Build FOnlineDir|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CBC}.Debug|x86.ActiveCfg = Debug|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CBC}.Debug|x86.Build.0 = Debug|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CBC}.Release|x86.ActiveCfg = Release|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CBC}.Release|x86.Build.0 = Release|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CAB}.Build FOnlineDir|x86.ActiveCfg = Build FOnlineDir|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CAB}.Build FOnlineDir|x86.Build.0 = Build FOnlineDir|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CAB}.Debug|x86.ActiveCfg = Debug|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CAB}.Debug|x86.Build.0 = Debug|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CAB}.Release|x86.ActiveCfg = Release|Win32
+		{FD9BBC21-D359-4B77-908B-306B0A833CAB}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
