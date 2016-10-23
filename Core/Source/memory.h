@@ -17,8 +17,9 @@ namespace EngineEx
 	void SafeWrite32(DWORD address, byte* bytes);
 
 	byte* SafeRead(DWORD address, int bytes);
+	void SafeMemCpy(void* dst, void* src, int size);
 
 	DWORD FindEmptySpace(int neededBytes, DWORD beginOffset);
 	DWORD FindEmptySpace(int neededBytes);
-	DWORD AllocateSpace(int neededBytes);
+	DWORD Allocate(int neededBytes);
 }

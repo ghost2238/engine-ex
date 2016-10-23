@@ -6,9 +6,11 @@
 #include "memory.h"
 #include "threading.h"
 #include "../Lib/fmt/format.h"
-#include "../Lib/NCodeHook/NCodeHook.h"
-#include "../Lib/NCodeHook/NCodeHookInstantiation.h"
 
+#include <iostream>
+#include <set>
+#include <map>
+#include <iterator>
 #include <Windows.h>
 
 namespace EngineEx
@@ -27,17 +29,21 @@ namespace EngineEx
 	public:
 		static void Init();
 		static void Log(const char* Text, ...);
+		static bool IsAlreadyHooked(DWORD originalFunc);
 		static DWORD GetDLLFunction(const char* dllName, const char* funcName);
-		static DWORD CreateBeforeHook(unsigned long originalFunc, unsigned long handlerFunc);
+		static Hook* CreateBeforeHook(unsigned long originalFunc, unsigned long handlerFunc);
 		static EndHookError CreateEndHook(std::string name, DWORD entryPoint, DWORD hookFunction);
-		static DWORD ReplaceFunction(unsigned long originalFunc, unsigned long handlerFunc);
-		static void MonitorCalls(unsigned long originalFunc, const char* name);
-		static void RemoveHook(DWORD func);
+		static Hook* HookManager::ReplaceFunction(unsigned long originalFunc, unsigned long handlerFunc);
+		static Hook* MonitorCalls(unsigned long originalFunc, const char* name);
+		static void RemoveHook(Hook* hook);
 		static void RemoveEndHook(DWORD entryPoint);
 		static void RemoveHooks();
+		static void LogStatus();
 	private:
-		static DWORD CreateHook(DWORD originalFunc, DWORD handlerFunc);
-		static std::vector<Hook*> Hooks;
+		static Hook* HookManager::CreateHook(DWORD originalFunc, DWORD handlerFunc);
+		static uintptr_t GetFreeTrampoline();
+		static std::map<uintptr_t, Hook> HookManager::Hooks;
+		static std::set<uintptr_t> freeTrampolines;
 		static void __stdcall LogFunc(char* text);
 	};
 }

@@ -36,7 +36,13 @@ namespace EngineEx
 	void SafeWrite16(DWORD address, byte* bytes) { SafeWrite(address, bytes, 16); }
 	void SafeWrite32(DWORD address, byte* bytes) { SafeWrite(address, bytes, 32); }
 
-	DWORD AllocateSpace(int neededBytes)
+	void SafeMemCpy(void* dst, void* src, int size)
+	{
+		LOG_T("Copying src 0x%x to dst 0x%x, size %d", (DWORD)dst, (DWORD)src, size);
+		memcpy_s(dst, size, src, size);
+	}
+
+	DWORD Allocate(int neededBytes)
 	{
 		void* mem = VirtualAllocEx(GetCurrentProcess(), NULL, neededBytes, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 

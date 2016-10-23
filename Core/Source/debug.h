@@ -2,11 +2,14 @@
 
 #include "../Lib/fmt/ostream.h"
 #include "../Lib/fmt/format.h"
+
+#include <fstream>
 #include <stdio.h>
 #include <cstdarg>
 #include <iomanip>
 #include <ctime>
 #include <time.h>
+#include <windows.h>
 
 namespace EngineEx
 {
@@ -33,6 +36,9 @@ namespace EngineEx
 			static LoggingLevel level;
 			static char* filename;
 			static bool logToFile;
+			static FILE* stdfile;
+
+			static void OpenConsole();
 			static void Init(LoggingLevel level, bool logToFile, char* filename);
 			static void Log_(char* text, LogModule module, int Level);
 			static void Info(LogModule module, char* text, ...);

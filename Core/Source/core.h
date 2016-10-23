@@ -1,5 +1,3 @@
-#include "../Lib/NCodeHook/NCodeHook.h"
-
 #include "debug.h"
 
 #include "hook.h"

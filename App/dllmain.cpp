@@ -8,10 +8,11 @@ void init(HMODULE hDLL)
 {
 	hModule = hDLL;
 	DisableThreadLibraryCalls(hDLL);
-	CreateThread(NULL, NULL, &DLLThread, NULL, NULL, &threadID);
-	Log::Init(LoggingLevel::Info, true, "EngineEx.log");
+
+	Log::Init(LoggingLevel::Trace, true, "EngineEx.log");
 	ConfigManager::Init();
 	HookManager::Init();
+	CreateThread(NULL, NULL, &DLLThread, NULL, NULL, &threadID);
 }
 
 

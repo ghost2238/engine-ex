@@ -21,10 +21,9 @@ EngineEx currently uses the following excellent libraries:
 
 - [JsonCPP](https://github.com/open-source-parsers/jsoncpp)
 - [diStorm](https://github.com/gdabah/distorm)
-- NCodeHook
-
+- [fmt](https://github.com/fmtlib/fmt)
 ## Platform Support
-Only Windows and x86 binaries are really supported so far.
+Only Windows and x86 binaries are really supported so far. I'm still thinking of the best approach to multi-arch.
 
 ## How to build? ##
 I've only tested with Visual C++ 2015 so far. It uses some VC++ specific directives so other probably compilers won't work.
@@ -71,7 +70,6 @@ All of these are currently done using detour-style hooks where a JMP is written 
 
 ## Considering
 - Use of Frida core as it has a lot of really advanced hooking functionality already.
-- Probably remove NCodeHook.
 
 ## Directories
 | Directory  | Purpose |

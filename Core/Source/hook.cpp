@@ -1,19 +1,10 @@
 #include "hook.h"
 
-
 namespace EngineEx
 {
-	Hook::Hook(const std::string name, DWORD originalFunction, DWORD hookHandler)
+	Hook::Hook(const std::string name, uintptr_t original, uintptr_t hookFunc, uintptr_t trampoline, uintptr_t patchSize)
+		: name(name), originalFunc(original), hookFunc(hookFunc), trampoline(trampoline), patchSize(patchSize)
 	{
-		this->name = name;
-		this->originalFunctionOffset = originalFunction;
-		this->handlerFunctionOffset = hookHandler;
-	}
 
-	Hook::Hook(DWORD originalFunction, DWORD hookHandler)
-	{
-		this->name = "";
-		this->originalFunctionOffset = originalFunction;
-		this->handlerFunctionOffset = hookHandler;
 	}
 }

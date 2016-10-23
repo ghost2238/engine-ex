@@ -163,9 +163,6 @@
     <ClInclude Include="Lib\fmt\time.h" />
     <ClInclude Include="Lib\JsonCPP\json-forwards.h" />
     <ClInclude Include="Lib\JsonCPP\json.h" />
-    <ClInclude Include="Lib\NCodeHook\NCodeHook.h" />
-    <ClInclude Include="Lib\NCodeHook\NCodeHookInstantiation.h" />
-    <ClInclude Include="Lib\NCodeHook\NCodeHookItem.h" />
     <ClInclude Include="Source\Config\configmanager.h" />
     <ClInclude Include="Source\core.h" />
     <ClInclude Include="Source\debug.h" />
@@ -191,8 +188,6 @@
     <ClCompile Include="Lib\fmt\ostream.cc" />
     <ClCompile Include="Lib\fmt\posix.cc" />
     <ClCompile Include="Lib\JsonCPP\jsoncpp.cpp" />
-    <ClCompile Include="Lib\NCodeHook\NCodeHook.cpp" />
-    <ClCompile Include="Lib\NCodeHook\NCodeHookItem.cpp" />
     <ClCompile Include="Source\Config\configmanager.cpp" />
     <ClCompile Include="Source\debug.cpp" />
     <ClCompile Include="Source\hook.cpp" />

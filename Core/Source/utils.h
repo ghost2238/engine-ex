@@ -25,6 +25,9 @@ namespace EngineEx
 
 	};
 
+	bool requiresAbsJump(uintptr_t from, uintptr_t to);
+	int getMinOffset(const unsigned char* codePtr, unsigned int jumpPatchSize);
+
 	class FunctionAnalyzer
 	{
 		public:
@@ -42,9 +45,10 @@ namespace EngineEx
 	{
 		public:
 			DisAssembler();
-			_DecodeResult DisAssemble(byte* bytes, int length, unsigned int& instructions, std::vector<_DecodedInst>& disassembledCode);
+			_DecodeResult DisAssemble(byte* bytes, int length, std::vector<_DecodedInst>& disassembledCode);
 			std::vector<std::string>* GetAsm(std::vector<_DecodedInst> instructions, int start, int count);
 			std::vector<std::string>* GetAsm(byte* bytes, int size);
+			bool IsBranch(_DecodedInst instruction);
 			std::string error;
 	};
 
@@ -59,6 +63,7 @@ namespace EngineEx
 
 			void Call(DWORD to);
 			void Jmp(DWORD to);
+			void JmpAbs(DWORD adress);
 			void Push(DWORD adress);
 
 			bool Write();

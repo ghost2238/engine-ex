@@ -36,6 +36,11 @@ int __stdcall MsgBoxA(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 	return 0;
 }
 
+void __stdcall AddMessTest2(int msgType, const char* text)
+{
+	printf("I should be called before!\n");
+}
+
 void __stdcall AddMessTest(int msgType, const char* text)
 {
 	//int r_ecx;
@@ -59,14 +64,4 @@ void __stdcall OnWriteFileLog(char* logLine, int dummy)
 {
 	//EventHandler::OnWriteFileLog(logLine);
 	foclient_writeToLog(MSGTYPE_DOT_RED, logLine);
-}
-
-char* retval;
-__declspec(naked) void EndHookGetMsg()
-{ 
-	__asm { __asm mov retval, eax __asm pushad }
- 
-	cout << retval;
- 
-	__asm { __asm popad __asm RET 4 } 
 }

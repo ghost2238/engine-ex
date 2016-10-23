@@ -45,7 +45,7 @@ namespace EngineEx
 
 	}
 
-	_DecodeResult DisAssembler::DisAssemble(byte* bytes, int length, unsigned int& instructions, std::vector<_DecodedInst>& disassembledCode)
+	_DecodeResult DisAssembler::DisAssemble(byte* bytes, int length, std::vector<_DecodedInst>& disassembledCode)
 	{
 		unsigned int instructionCount = 0;
 		_DecodedInst* disassembled = new _DecodedInst[length];
@@ -55,7 +55,6 @@ namespace EngineEx
 			this->error = "diStorm was unable to disassemble code.\n";
 			Log::Error(LogModule::Utils, "diStorm was unable to disassemble code");
 		}
-		instructions = instructionCount;
 		for (unsigned int i = 0;i < instructionCount;i++)
 			disassembledCode.push_back(disassembled[i]);
 
@@ -80,15 +79,22 @@ namespace EngineEx
 		return lines;
 	}
 
+	bool DisAssembler::IsBranch(_DecodedInst instruction)
+	{
+		const char* instr = (const char*)instruction.mnemonic.p;
+		if (instr[0] == 'J' || strstr(instr, "CALL"))
+			return true;
+		return false;
+	}
+
 	std::vector<std::string>* DisAssembler::GetAsm(byte* bytes, int size)
 	{
 		auto lines = new std::vector<std::string>();
 
-		unsigned int instructions;
 		std::vector<_DecodedInst>* disassembled = new std::vector<_DecodedInst>();
 		
-		DisAssembler::DisAssemble(bytes, size, instructions, *disassembled);
-		lines = this->GetAsm(*disassembled, 0, size);
+		DisAssembler::DisAssemble(bytes, size, *disassembled);
+		lines = this->GetAsm(*disassembled, 0, disassembled->size());
 
 		return lines;
 	}
@@ -105,7 +111,7 @@ namespace EngineEx
 	{
 		this->size = size;
 		this->data = new byte[size];
-		this->address = AllocateSpace(size);
+		this->address = Allocate(size);
 		this->currentPos = 0;
 	}
 
@@ -137,6 +143,13 @@ namespace EngineEx
 		this->Add(0xE8);
 		this->AddAdress(adress - this->address - this->currentPos - 4);
 	}
+
+	void MemoryPatch::JmpAbs(DWORD adress)
+	{
+		this->Add(0xFF);
+		this->AddAdress(adress - this->address - this->currentPos - 4);
+	}
+
 	void MemoryPatch::Jmp(DWORD adress)
 	{
 		this->Add(0xE9);
@@ -155,6 +168,34 @@ namespace EngineEx
 		SafeWrite(this->address, this->data, this->size);
 		return true;
 	}
+
+	int getMinOffset(const unsigned char* codePtr, unsigned int jumpPatchSize)
+	{
+		auto disAsm = new DisAssembler();
+
+		std::vector<_DecodedInst> instructions;
+
+		auto bytes = SafeRead((DWORD)codePtr, 20);
+		disAsm->DisAssemble(bytes, 20, instructions);
+
+		auto instructionCount = instructions.size();
+
+		unsigned int offset = 0;
+		for (unsigned int i = 0; offset < jumpPatchSize && i < instructionCount; ++i)
+		{
+			if (disAsm->IsBranch(instructions[i])) return -1;
+			offset += instructions[i].size;
+		}
+		// if we were unable to disassemble enough instructions we fail
+		if (offset < jumpPatchSize) return -1;
+		return offset;
+	}
+
+	bool requiresAbsJump(uintptr_t from, uintptr_t to)
+	{
+		uintptr_t jmpDistance = from > to ? from - to : to - from;
+		return jmpDistance <= 0x7FFF0000 ? false : true;
+	};
 
 
 	void split(const std::string &s, char delim, std::vector<std::string> &elems) {

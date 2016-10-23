@@ -11,6 +11,7 @@ void readPointers();
 //void __stdcall ReplaceTest();
 void __cdecl CDeclTest(int a, int b, int c);
 void __stdcall AddMessTest(int msgType, const char* text);
+void __stdcall AddMessTest2(int msgType, const char* text);
 void  __stdcall OnWriteFileLog(char* logLine, int dummy);
 char* __stdcall GetMsgTest(int id, int dummy);
 void OnDrawGame();

@@ -8,12 +8,29 @@ namespace EngineEx
 	LoggingLevel Log::level;
 	char* Log::filename;
 	bool Log::logToFile;
+	FILE* Log::stdfile;
+
+	std::ofstream fs;
 
 	void Log::Init(LoggingLevel level, bool logToFile, char* filename)
 	{
 		Log::logToFile = logToFile;
 		Log::filename = filename;
 		Log::level = level;
+
+		if (logToFile)
+			fs = std::ofstream(filename, std::ios_base::app);
+
+		Log::OpenConsole();
+
+		Log::Info(LogModule::Global, "Initialized loggging");
+	}
+
+	void Log::OpenConsole()
+	{
+		AllocConsole();
+		AttachConsole(ATTACH_PARENT_PROCESS);
+		freopen_s(&stdfile, "CONOUT$", "w", stdout);
 	}
 
 	void Log::Log_(char* text, LogModule module, int level)
@@ -31,35 +48,41 @@ namespace EngineEx
 		else if (level == LoggingLevel::Info)  c = fmt::Color::WHITE;
 		else if (level == LoggingLevel::Trace) c = fmt::Color::WHITE;*/
 
-		char* mod = "";
+		char* mod = "Global";
 		if (module == LogModule::Hooking) mod = "Hooking";
 		else if (module == LogModule::Memory)  mod = "Memory";
 		else if (module == LogModule::Utils)  mod = "Utils";
 
-		fmt::print("{0} [{1}] {2} \n", std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S"), mod, text);
+		auto str = fmt::format("{0} [{1}] {2} \n", std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S"), mod, text);
+		printf(str.c_str());
+		if (Log::logToFile) { fs << str.c_str(); fs.flush(); }
 	}
 
 	void Log::Info(LogModule module, char* text, ...)
 	{
 		__VA_ARGS(512);
-		Log_(buffer, module, LoggingLevel::Info);
+		if (strcmp(buffer, "") == 0) Log_(text, module, LoggingLevel::Info);
+		else Log_(buffer, module, LoggingLevel::Info);
 	}
 
 	void Log::Trace(LogModule module, char* text, ...)
 	{
 		__VA_ARGS(512);
-		Log_(buffer, module, LoggingLevel::Trace);
+		if (strcmp(buffer, "") == 0) Log_(text, module, LoggingLevel::Trace);
+		else Log_(buffer, module, LoggingLevel::Trace);
 	}
 
 	void Log::Error(LogModule module, char* text, ...)
 	{
 		__VA_ARGS(512);
-		Log_(buffer, module, LoggingLevel::Error);
+		if (strcmp(buffer, "") == 0) Log_(text, module, LoggingLevel::Error);
+		else Log_(buffer, module, LoggingLevel::Error);
 	}
 
 	void Log::Debug(LogModule module, char* text, ...)
 	{
 		__VA_ARGS(512);
-		Log_(buffer, module, LoggingLevel::Debug);
+		if (strcmp(buffer, "") == 0) Log_(text, module, LoggingLevel::Debug);
+		else Log_(buffer, module, LoggingLevel::Debug);
 	}
 }

@@ -2,17 +2,37 @@
 
 namespace EngineEx
 {
-	NCodeHookIA32 nch;
-	std::vector<Hook*> HookManager::Hooks;
+	std::map<uintptr_t, Hook> HookManager::Hooks;
+	std::set<uintptr_t> HookManager::freeTrampolines;
 
 	#define LOG_D(...) Log::Debug(LogModule::Hooking, __VA_ARGS__);
 	#define LOG_E(...) Log::Error(LogModule::Hooking, __VA_ARGS__);
 	#define LOG_T(...) Log::Trace(LogModule::Hooking, __VA_ARGS__);
 	#define LOG_I(...) Log::Info(LogModule::Hooking, __VA_ARGS__);
 
+	const unsigned int NearJumpPatchSize = sizeof(int) + 1;
+	const unsigned int AbsJumpPatchSize = sizeof(uintptr_t) * 2 + 2;
+	// max trampoline size = longest instruction (6) starting 1 byte before jump patch boundary
+	const unsigned int MaxTrampolineSize = AbsJumpPatchSize - 1 + 6;
+	const unsigned int MaxTotaltTrampolineSize = MaxTrampolineSize + AbsJumpPatchSize;
+
 	void HookManager::Init()
 	{
-		nch.forceAbsoluteJumps(false);
+		LOG_T("Initializing");
+		int trampolineBufferSize = 4096;
+
+		auto trampolineBuffer_ = Allocate(trampolineBufferSize);
+		if (trampolineBuffer_ == NULL)
+		{
+			LOG_E("Unable to allocate trampoline memory!");
+			return;
+		}
+		LOG_T("Allocated trampoline buffer")
+
+		for (uintptr_t i = (uintptr_t)trampolineBuffer_; i<(uintptr_t)trampolineBuffer_ + trampolineBufferSize; i += MaxTotaltTrampolineSize)
+			HookManager::freeTrampolines.insert(i);
+
+		LOG_T("Filled trampoline buffer with %d elements.", HookManager::freeTrampolines.size());
 	}
 
 	// Called by generated code
@@ -21,20 +41,104 @@ namespace EngineEx
 		printf("%s", text);
 	}
 
-	DWORD HookManager::CreateHook(DWORD originalFunc, DWORD handlerFunc)
+	uintptr_t HookManager::GetFreeTrampoline()
 	{
-		LOG_T("Creating a hook, original: 0x%x, handler: 0x%x", originalFunc, handlerFunc);
-		DWORD result = nch.createHook(originalFunc, (DWORD)handlerFunc);
-		LOG_D("Result: 0x%x", result);
-		if (result == 0)
+		if (HookManager::freeTrampolines.empty())
 		{
-			LOG_E("Hooking failed");
+			LOG_E("No trampoline space left!");
 			return 0;
 		}
-		return 0;
+		std::set<uintptr_t>::iterator it = freeTrampolines.begin();
+		uintptr_t result = *it;
+		return result;
 	}
 
-	void HookManager::MonitorCalls(unsigned long originalFunc, const char* name)
+	bool HookManager::IsAlreadyHooked(DWORD originalFunc)
+	{
+		for (auto& kv : HookManager::Hooks)
+		{
+			if (kv.second.originalFunc == originalFunc)
+			{
+				LOG_T("0x%x is already hooked by 0x%x.", originalFunc, kv.second.hookFunc);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	Hook* HookManager::CreateHook(DWORD originalFunc, DWORD handlerFunc)
+	{
+		for (auto& kv : HookManager::Hooks)
+		{
+			if (kv.second.originalFunc == originalFunc)
+			{
+				LOG_D("0x%x is already hooked by 0x%x, returning that hook.", originalFunc, kv.second.hookFunc);
+				return &kv.second;
+			}
+		}
+
+		if (originalFunc == 0)
+			LOG_E("Original function provided is null");
+		if (handlerFunc == 0)
+			LOG_E("Original function provided is null");
+
+		if (originalFunc == 0 || handlerFunc == 0) return NULL;
+
+		LOG_T("Creating a hook, original: 0x%x, handler: 0x%x", originalFunc, handlerFunc);
+
+		bool useAbsJump = false;
+		int offset = 0;
+		if (useAbsJump || requiresAbsJump((uintptr_t)originalFunc, (uintptr_t)handlerFunc))
+		{
+			offset = getMinOffset((const unsigned char*)originalFunc, AbsJumpPatchSize);
+			useAbsJump = true;
+		}
+		else offset = getMinOffset((const unsigned char*)originalFunc, NearJumpPatchSize);
+		// error while determining offset?
+		if (offset == -1) return NULL;
+
+		LOG_T("Allocing");
+		DWORD oldProtect = 0;
+
+		LOG_T("Get trampoline memory");
+		uintptr_t trampolineAddr = HookManager::GetFreeTrampoline();
+		if (trampolineAddr == NULL)
+			return NULL;
+
+		LOG_T("Copying data from original function");
+		SafeMemCpy((void*)trampolineAddr, (void*)originalFunc, offset);
+		auto patch = new MemoryPatch(5, (uintptr_t)originalFunc);
+		auto patch2 = new MemoryPatch(5, (uintptr_t)trampolineAddr + offset);
+		if (useAbsJump) 
+		{
+			LOG_D("Need to use absolute jumps.");
+			patch->JmpAbs(handlerFunc);
+			patch2->JmpAbs((uintptr_t)originalFunc + offset);
+		}
+		else
+		{
+			LOG_D("Using relative jumps.");
+			patch->Jmp(handlerFunc);
+			patch2->Jmp((uintptr_t)originalFunc + offset);
+		}
+		patch->Write();
+		patch2->Write();
+
+		LOG_T("Flushing instruction cache");
+		FlushInstructionCache(GetCurrentProcess(), (LPCVOID)trampolineAddr, MaxTotaltTrampolineSize);
+		FlushInstructionCache(GetCurrentProcess(), (LPCVOID)originalFunc, useAbsJump ? AbsJumpPatchSize : NearJumpPatchSize);
+
+		LOG_T("Removing used trampoline from free trampoline pool");
+		freeTrampolines.erase(trampolineAddr);
+
+		auto hook = new Hook("", (uintptr_t)originalFunc, (uintptr_t)handlerFunc, trampolineAddr, offset);
+		HookManager::Hooks.insert(std::make_pair((uintptr_t)handlerFunc, *hook));
+
+		HookManager::LogStatus();
+		return hook;
+	}
+
+	Hook* HookManager::MonitorCalls(unsigned long originalFunc, const char* name)
 	{
 		char* text = new char[255];
 		snprintf(text, 255, "%s (0x%X2) was called.\n\0", name, (DWORD)originalFunc);
@@ -45,11 +149,11 @@ namespace EngineEx
 		if (patch->address == 0)
 		{
 			LOG_E("Unable to allocate code.");
-			return;
+			return NULL;
 		}
 		DWORD logFunc = (DWORD)&HookManager::LogFunc;
-		DWORD trampoline = nch.getNextFreeTrampoline();
-		LOG_D("Trampoline 0x%x.", DWORD(trampoline));
+		DWORD trampoline = HookManager::GetFreeTrampoline();
+		LOG_T("Trampoline is 0x%x.", DWORD(trampoline));
 
 		patch->Add(0x60); // PUSHAD
 		patch->Push(*(PDWORD)&text);
@@ -67,15 +171,15 @@ namespace EngineEx
 		if (!patch->Write())
 		{
 			Log::Error(LogModule::Hooking, "%s", patch->error.c_str());
-			return;
+			return NULL;
 		}
 		if(patch->warn.length() != 0)
 			Log::Debug(LogModule::Hooking, "Warn: %s", patch->error.c_str());
 
-		HookManager::CreateHook(originalFunc, patch->address);
+		return HookManager::CreateHook(originalFunc, patch->address);
 	}
 
-	DWORD HookManager::ReplaceFunction(unsigned long originalFunc, unsigned long handlerFunc)
+	Hook* HookManager::ReplaceFunction(unsigned long originalFunc, unsigned long handlerFunc)
 	{
 		LOG_I("Replacing 0x%x with 0x%x", originalFunc, handlerFunc);
 		return HookManager::CreateHook(originalFunc, handlerFunc);
@@ -94,13 +198,19 @@ namespace EngineEx
 
 	// Call handler before original func while preserving registers for the original function 
 	// (and with right calling convention stack will be fine after).
-	DWORD HookManager::CreateBeforeHook(unsigned long originalFunc, unsigned long handlerFunc)
+	Hook* HookManager::CreateBeforeHook(unsigned long originalFunc, unsigned long handlerFunc)
 	{
 		LOG_I("Creating a before hook for 0x%x, handler function 0x%x", (DWORD)originalFunc, (DWORD)handlerFunc);
-		// All this needs to be seriously refactored, this is just experiment code...
+
+		if (IsAlreadyHooked(originalFunc))
+			return NULL;
+
+		DWORD trampoline = HookManager::GetFreeTrampoline();
+		if (trampoline == NULL)
+			return NULL;
 
 		// 4 * 8 for all registers
-		DWORD regspace = AllocateSpace(32);
+		DWORD regspace = Allocate(32);
 
 		auto patch = new MemoryPatch(44);
 
@@ -138,8 +248,6 @@ namespace EngineEx
 		patch->Add(0x15);
 		patch->AddAdress(regspace);
 
-		DWORD trampoline = nch.getNextFreeTrampoline();
-
 		patch->Jmp(trampoline);
 
 		std::vector<std::string>* asmCode = patch->GetAsm();
@@ -162,34 +270,40 @@ namespace EngineEx
 
 	void HookManager::RemoveHooks()
 	{
-		// Remove CallHooks
-		for (auto &kv : nch.getHookedFunctions())
-		{
-			LOG_I("Removing hook 0x%x (Hooked to 0x%x)", kv.second.OriginalFunc, kv.second.HookFunc);
-			nch.removeHook(kv.second.HookFunc);
-		}
-		// Remove EndHooks
+		// Remove hooks
 		for (auto &hook : HookManager::Hooks)
 		{
-			LOG_I("Removing EndHook 0x%x (Hooked to 0x%x)", hook->originalFunctionOffset, hook->handlerFunctionOffset);
-			HookManager::RemoveEndHook(hook->originalFunctionOffset);
+			LOG_I("Removing 0x%x hook (hooked to 0x%x)", hook.second.originalFunc, hook.second.hookFunc);
+			HookManager::RemoveHook(&hook.second);
 		}
+		HookManager::LogStatus();
 	}
 
-	void HookManager::RemoveHook(DWORD func)
+	void HookManager::RemoveHook(Hook* hook)
 	{
-		nch.removeHook(func);
+		LOG_I("Removing hook of 0x%x");
+		SafeMemCpy((void*)hook->originalFunc, (void*)hook->trampoline, hook->patchSize);
+		HookManager::Hooks.erase(hook->hookFunc);
+		HookManager::freeTrampolines.insert(hook->trampoline);
+		freeTrampolines.insert(hook->trampoline);
+		FlushInstructionCache(GetCurrentProcess(), (LPCVOID)hook->originalFunc, hook->patchSize);
+		HookManager::LogStatus();
+	}
+
+	void HookManager::LogStatus()
+	{
+		LOG_D("Current active hooks: %d, free trampolines: %d ", HookManager::Hooks.size(), HookManager::freeTrampolines.size());
 	}
 
 	void HookManager::RemoveEndHook(DWORD entryPoint)
 	{
 		for (auto hook : HookManager::Hooks)
 		{
-			if (hook->originalFunctionOffset == entryPoint)
+			if (hook.second.originalFunc == entryPoint)
 			{
-				for (auto& kv : hook->overwrittenCode)
+				for (auto& kv : hook.second.overwrittenCode)
 				{
-					LOG_D("Restoring code for 0x%x.", hook->originalFunctionOffset);
+					LOG_D("Restoring code for 0x%x.", hook.second.originalFunc);
 					DWORD offset = (DWORD)kv.first;
 					CodeBytes* cb = kv.second;
 					SafeWrite((DWORD)offset, cb->bytes, cb->size);
@@ -213,11 +327,12 @@ namespace EngineEx
 
 		auto disAsm = new DisAssembler();
 
-		auto result = disAsm->DisAssemble(bytes, 4096, instructionCount, *disassembled);
+		auto result = disAsm->DisAssemble(bytes, 4096, *disassembled);
+		instructionCount = disassembled->size();
 
 		bool done = false;
 		bool firstReturn = true;
-		Hook* endhook = new Hook(name, (DWORD)entryPoint, (DWORD)hookFunction);
+		
 
 		auto funcAnalyzer = new FunctionAnalyzer(entryPoint, *disassembled, instructionCount);
 
@@ -239,7 +354,9 @@ namespace EngineEx
 		CodeBytes* cb = new CodeBytes;
 		cb->bytes = savedCode;
 		cb->size = saveSize;
+		Hook* endhook = new Hook(name, (DWORD)entryPoint, (DWORD)hookFunction, 0, cb->size);
 		endhook->addOverwrittenCode(retOffset, cb);
+		
 
 		for (auto& ret : rets)
 		{
@@ -271,6 +388,8 @@ namespace EngineEx
 			patch->Write();
 		}
 		free(disassembled);
+
+		
 
 		return EndHookError::Success;
 	};
