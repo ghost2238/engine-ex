@@ -1,6 +1,3 @@
-// EngineEx
-//#define DECL_OFFSETS
-
 #include "appmain.h"
 
 DWORD WINAPI DLLThread(LPVOID);
@@ -12,22 +9,22 @@ void init(HMODULE hDLL)
 	hModule = hDLL;
 	DisableThreadLibraryCalls(hDLL);
 	CreateThread(NULL, NULL, &DLLThread, NULL, NULL, &threadID);
+	Log::Init(LoggingLevel::Info, true, "EngineEx.log");
+	ConfigManager::Init();
+	HookManager::Init();
 }
+
 
 void finish()
 {
-	DEBUG_DLL("Finishing...\n");
-	//HookManager::RemoveHooks();
-	//Sleep(10000); // Prevent crash from hooked code. 
+	Log::Info(LogModule::Global, "Finishing...");
 	FreeLibraryAndExitThread(hModule, 0);
 }
 
 DWORD WINAPI DLLThread(LPVOID)
 {
 	AppMain();
-	while (!IsFinished()) { Sleep(250); }
 	finish();
-	FreeLibraryAndExitThread(hModule, 0);
     return 0;
 }
 

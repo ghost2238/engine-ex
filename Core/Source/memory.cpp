@@ -2,17 +2,33 @@
 
 namespace EngineEx
 {
+	#define LOG_D(...) Log::Debug(LogModule::Memory, __VA_ARGS__);
+	#define LOG_E(...) Log::Error(LogModule::Memory, __VA_ARGS__);
+	#define LOG_T(...) Log::Trace(LogModule::Memory, __VA_ARGS__);
+	#define LOG_I(...) Log::Info(LogModule::Memory, __VA_ARGS__);
+
 	void SafeWrite(DWORD address, byte* bytes, int size)
 	{
-		MemLog("Starting to write %d bytes at 0x%x.\n", size, (DWORD)address);
+		LOG_D("Starting to write %d bytes at 0x%x.", size, (DWORD)address);
 		DWORD OldProtect;
 		VirtualProtectEx(GetCurrentProcess(), (void*)((DWORD)address), size, PAGE_EXECUTE_WRITECOPY, &OldProtect);
 		for (int i = 0;i < size;i++)
 		{
 			(*(byte*)((DWORD)address + i)) = bytes[i];
-			MemLog("0x%x: Writing '0x%x'\n", (DWORD)(address + i), bytes[i]);
+			LOG_T("0x%x: Writing '0x%x'", (DWORD)(address + i), bytes[i]);
 		}
 		VirtualProtectEx(GetCurrentProcess(), (void*)((DWORD)address), size, OldProtect, NULL);
+	}
+
+	byte* SafeRead(DWORD address, int bytes)
+	{
+		byte* data = new byte[bytes];
+		for (int i = 0;i < bytes;i++)
+		{
+			*(byte*)&data[i] = *(byte*)((DWORD)(address + i));
+			LOG_T("0x%x: Reading '0x%x'", ((DWORD)(address + i)), (*(byte*)((DWORD)(address + i))));
+		}
+		return data;
 	}
 
 	void SafeWrite4(DWORD address, byte* bytes) { SafeWrite(address, bytes, 4); }
@@ -20,27 +36,15 @@ namespace EngineEx
 	void SafeWrite16(DWORD address, byte* bytes) { SafeWrite(address, bytes, 16); }
 	void SafeWrite32(DWORD address, byte* bytes) { SafeWrite(address, bytes, 32); }
 
-	void MemLog(const char* Text, ...)
-	{
-		char buffer[256];
-		va_list args;
-		va_start(args, Text);
-		vsprintf_s(buffer, 4096, Text, args);
-		va_end(args);
-
-		printf("[Memory] %s", buffer);
-	}
-
 	DWORD AllocateSpace(int neededBytes)
 	{
 		void* mem = VirtualAllocEx(GetCurrentProcess(), NULL, neededBytes, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 
-		MemLog("Allocated %d bytes @ 0x%x\n", neededBytes, (DWORD)mem);
+		LOG_D("Allocated %d bytes @ 0x%x", neededBytes, (DWORD)mem);
 		return (DWORD)mem;
 	}
 
-
-	// Use AllocateSpace instead, this is if we want to inject
+	// Use AllocateSpace generally, this is if we want to inject near a function.
 	DWORD FindEmptySpace(int neededBytes)
 	{
 		return FindEmptySpace(neededBytes, 0x400000);
@@ -54,11 +58,11 @@ namespace EngineEx
 
 		if (startOffset == NULL)
 		{
-			MemLog("Invalid starting offset\n");
+			LOG_D("Invalid starting offset");
 			return 0;
 		}
 
-		MemLog("Trying to find space for code, %d bytes starting at 0x%x.\n", neededBytes, startOffset);
+		LOG_D("Trying to find space for code, %d bytes starting at 0x%x.", neededBytes, startOffset);
 
 		int foundBytes;
 
@@ -79,14 +83,14 @@ namespace EngineEx
 			result = distorm_decode(0, (const unsigned char*)startOffset, bufferSize, Decode32Bits, disassembled, bufferSize, &instructionCount);
 			if (result != DECRES_SUCCESS)
 			{
-				MemLog("diStorm was unable to disassemble code.\n");
+				LOG_E("diStorm was unable to disassemble code.");
 				return 0;
 			}
 
 			for (unsigned int i = 0;i < instructionCount;i++)
 			{
 				currentOffset = (DWORD)(startOffset + disassembled[i].offset);
-				//MemLog("current is 0x%x\n", currentOffset);
+				LOG_T("Current offset is 0x%x", currentOffset);
 				bool canUse = (strcmp((char*)disassembled[i].mnemonic.p, "INT 3") == 0 ||
 					strcmp((char*)disassembled[i].mnemonic.p, "NOP") == 0);
 
@@ -94,7 +98,7 @@ namespace EngineEx
 				{
 					if (foundBytes == 0) foundOffset = (DWORD)currentOffset;
 					foundBytes++;
-					//DEBUG_HOOK("Found INT 3 @ 0x%x\n", (DWORD)currentOffset);
+					LOG_T("Found INT 3 @ 0x%x", (DWORD)currentOffset);
 				}
 				else
 				{
@@ -103,7 +107,7 @@ namespace EngineEx
 
 				if (foundBytes == neededBytes)
 				{
-					MemLog("Suitable offset found @ 0x%x\n", (DWORD)foundOffset);
+					LOG_I("Suitable offset found @ 0x%x", (DWORD)foundOffset);
 					return foundOffset;
 				}
 			}

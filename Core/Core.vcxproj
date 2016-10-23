@@ -35,7 +35,7 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -59,16 +59,26 @@
     <OutDir>$(SolutionDir)\__build\</OutDir>
     <IntDir>$(SolutionDir)\__build\core\</IntDir>
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)\__build\</OutDir>
     <IntDir>$(SolutionDir)\__build\core\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Build FOnlineDir|Win32'">
     <OutDir>$(SolutionDir)\__build\</OutDir>
     <IntDir>$(SolutionDir)\__build\core\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <CodeAnalysisRuleSet>C:\Program Files (x86)\Microsoft Visual Studio 14.0\Team Tools\Static Analysis Tools\Rule Sets\NativeRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
+    <SourcePath>$(VC_SourcePath)</SourcePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -82,6 +92,7 @@
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <CompileAs>CompileAsCpp</CompileAs>
+      <EnablePREfast>false</EnablePREfast>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -99,6 +110,7 @@
       <PrecompiledHeader />
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnablePREfast>false</EnablePREfast>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -110,9 +122,9 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Build FOnlineDir|Win32'">
     <ClCompile>
-      <Optimization>Disabled</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>false</OmitFramePointers>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -120,6 +132,7 @@
       <PrecompiledHeader />
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnablePREfast>false</EnablePREfast>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -141,6 +154,13 @@
     <ClInclude Include="Lib\diStorm\textdefs.h" />
     <ClInclude Include="Lib\diStorm\wstring.h" />
     <ClInclude Include="Lib\diStorm\x86defs.h" />
+    <ClInclude Include="Lib\easylogging\easylogging++.h" />
+    <ClInclude Include="Lib\fmt\format.h" />
+    <ClInclude Include="Lib\fmt\ostream.h" />
+    <ClInclude Include="Lib\fmt\posix.h" />
+    <ClInclude Include="Lib\fmt\printf.h" />
+    <ClInclude Include="Lib\fmt\string.h" />
+    <ClInclude Include="Lib\fmt\time.h" />
     <ClInclude Include="Lib\JsonCPP\json-forwards.h" />
     <ClInclude Include="Lib\JsonCPP\json.h" />
     <ClInclude Include="Lib\NCodeHook\NCodeHook.h" />
@@ -167,6 +187,9 @@
     <ClCompile Include="Lib\diStorm\prefix.c" />
     <ClCompile Include="Lib\diStorm\textdefs.c" />
     <ClCompile Include="Lib\diStorm\wstring.c" />
+    <ClCompile Include="Lib\fmt\format.cc" />
+    <ClCompile Include="Lib\fmt\ostream.cc" />
+    <ClCompile Include="Lib\fmt\posix.cc" />
     <ClCompile Include="Lib\JsonCPP\jsoncpp.cpp" />
     <ClCompile Include="Lib\NCodeHook\NCodeHook.cpp" />
     <ClCompile Include="Lib\NCodeHook\NCodeHookItem.cpp" />

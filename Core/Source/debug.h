@@ -1,15 +1,46 @@
 #pragma once
 
-#include <fstream>
-#include <stdarg.h>
+#include "../Lib/fmt/ostream.h"
+#include "../Lib/fmt/format.h"
+#include <stdio.h>
+#include <cstdarg>
+#include <iomanip>
+#include <ctime>
+#include <time.h>
 
 namespace EngineEx
 {
-	#ifdef DEBUG
-		#define DEBUG_DLL(__text, ...) debug_file(".\\dlldebug.txt", __text, __VA_ARGS__);
-	#else
-		#define DEBUG_DLL(__text, ...)
-	#endif
+	enum LogModule
+	{
+		Global,
+		Hooking,
+		Memory,
+		Utils
+	};
 
-	void debug_file(char* file, const char* Text, ...);
+	enum LoggingLevel
+	{
+		Trace,
+		Debug,
+		Info,
+		Error,
+		None
+	};
+
+	class Log
+	{
+		public:
+			static LoggingLevel level;
+			static char* filename;
+			static bool logToFile;
+			static void Init(LoggingLevel level, bool logToFile, char* filename);
+			static void Log_(char* text, LogModule module, int Level);
+			static void Info(LogModule module, char* text, ...);
+			static void Trace(LogModule module, char* text, ...);
+			static void Error(LogModule module, char* text, ...);
+			static void Debug(LogModule module, char* text, ...);
+
+	};
+
+	
 }

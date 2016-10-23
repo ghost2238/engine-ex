@@ -5,16 +5,10 @@ namespace EngineEx
 	NCodeHookIA32 nch;
 	std::vector<Hook*> HookManager::Hooks;
 
-	void HookManager::Log(const char* Text, ...)
-	{
-		char buffer[4096];
-		va_list args;
-		va_start(args, Text);
-		vsprintf_s(buffer, 4096, Text, args);
-		va_end(args);
-
-		printf("[Hooking] %s", buffer);
-	}
+	#define LOG_D(...) Log::Debug(LogModule::Hooking, __VA_ARGS__);
+	#define LOG_E(...) Log::Error(LogModule::Hooking, __VA_ARGS__);
+	#define LOG_T(...) Log::Trace(LogModule::Hooking, __VA_ARGS__);
+	#define LOG_I(...) Log::Info(LogModule::Hooking, __VA_ARGS__);
 
 	void HookManager::Init()
 	{
@@ -27,61 +21,64 @@ namespace EngineEx
 		printf("%s", text);
 	}
 
+	DWORD HookManager::CreateHook(DWORD originalFunc, DWORD handlerFunc)
+	{
+		LOG_T("Creating a hook, original: 0x%x, handler: 0x%x", originalFunc, handlerFunc);
+		DWORD result = nch.createHook(originalFunc, (DWORD)handlerFunc);
+		LOG_D("Result: 0x%x", result);
+		if (result == 0)
+		{
+			LOG_E("Hooking failed");
+			return 0;
+		}
+		return 0;
+	}
+
 	void HookManager::MonitorCalls(unsigned long originalFunc, const char* name)
 	{
 		char* text = new char[255];
 		snprintf(text, 255, "%s (0x%X2) was called.\n\0", name, (DWORD)originalFunc);
 
-		DEBUG_HOOK("Adding monitoring call for 0x%x\n", (DWORD)originalFunc);
+		LOG_I("Adding monitoring call for 0x%x", (DWORD)originalFunc);
 
-		DWORD offset = AllocateSpace(18);
-
-		if (offset == 0x0)
+		auto patch = new MemoryPatch(17);
+		if (patch->address == 0)
 		{
-			DEBUG_HOOK("Unable to find codespace.\n");
+			LOG_E("Unable to allocate code.");
 			return;
 		}
-
 		DWORD logFunc = (DWORD)&HookManager::LogFunc;
-
 		DWORD trampoline = nch.getNextFreeTrampoline();
-		DEBUG_HOOK("Trampoline 0x%x.\n", DWORD(trampoline));
+		LOG_D("Trampoline 0x%x.", DWORD(trampoline));
 
-		DEBUG_HOOK("String: 0x%X\n", *(PDWORD)&text);
+		patch->Add(0x60); // PUSHAD
+		patch->Push(*(PDWORD)&text);
+		patch->Call(logFunc);
+		patch->Add(0x61); // POPAD
+		patch->Jmp(trampoline);
 
-		byte data[17];
-		int i = 0;
-		data[i++] = 0x60; // PUSHAD
-		data[i++] = 0x68; // PUSH
-		*(PDWORD)&data[i] = ((*(PDWORD)&text));
-		i += 4;
-		data[i++] = 0xE8; // CALL
-		*(PDWORD)&data[i] = (DWORD)(logFunc - offset - i - 4);
-		i += 4;
-		data[i++] = 0x61; // PUSHAD
-		data[i++] = 0xE9; // JMP
-		*(PDWORD)&data[i] = (DWORD)(trampoline - offset - i - 4);
-		i += 4;
-
-		SafeWrite(offset, data, i);
-
-		DWORD result = nch.createHook(originalFunc, (DWORD)offset);
-		DEBUG_HOOK("Result 0x%x.\n", DWORD(result));
-		if (result == 0x0)
+		std::vector<std::string>* asmCode = patch->GetAsm();
+		LOG_D("Generated code:");
+		for (auto s : *asmCode)
 		{
-			DEBUG_HOOK("Hooking failed.\n");
+			Log::Debug(LogModule::Hooking, "%s", s);
+		}
+
+		if (!patch->Write())
+		{
+			Log::Error(LogModule::Hooking, "%s", patch->error.c_str());
 			return;
 		}
+		if(patch->warn.length() != 0)
+			Log::Debug(LogModule::Hooking, "Warn: %s", patch->error.c_str());
+
+		HookManager::CreateHook(originalFunc, patch->address);
 	}
 
 	DWORD HookManager::ReplaceFunction(unsigned long originalFunc, unsigned long handlerFunc)
 	{
-		DEBUG_HOOK("Handler 0x%x.\n", DWORD(handlerFunc));
-		DWORD result = nch.createHook(originalFunc, (DWORD)handlerFunc);
-		if (result == 0x0)
-			DEBUG_HOOK("Hooking failed.\n");
-		DEBUG_HOOK("Code written\n");
-		return result;
+		LOG_I("Replacing 0x%x with 0x%x", originalFunc, handlerFunc);
+		return HookManager::CreateHook(originalFunc, handlerFunc);
 	}
 
 	DWORD HookManager::GetDLLFunction(const char* dllName, const  char* funcName)
@@ -99,298 +96,181 @@ namespace EngineEx
 	// (and with right calling convention stack will be fine after).
 	DWORD HookManager::CreateBeforeHook(unsigned long originalFunc, unsigned long handlerFunc)
 	{
-		DEBUG_HOOK("Creating wrapper handler...");
-		DWORD offset = AllocateSpace(60);
-
-		DWORD trampoline = nch.getNextFreeTrampoline();
-
+		LOG_I("Creating a before hook for 0x%x, handler function 0x%x", (DWORD)originalFunc, (DWORD)handlerFunc);
 		// All this needs to be seriously refactored, this is just experiment code...
 
 		// 4 * 8 for all registers
 		DWORD regspace = AllocateSpace(32);
 
-		byte data[43];
-				
-		/* Save registers */
-		int i = 0;
-		data[i++] = 0x89;
-		data[i++] = 0x0D;
-		*(PDWORD)&data[i] = (DWORD)regspace;
-		i += 4;
-		data[i++] = 0x89;
-		data[i++] = 0x15;
-		*(PDWORD)&data[i] = (DWORD)regspace + 4;
-		i += 4;
+		auto patch = new MemoryPatch(44);
+
+		/* Save registers (only EAX/EDX for now) */
+		patch->Add(0x89);
+		patch->Add(0x0D);
+		patch->AddAdress(regspace);
+		patch->Add(0x89);
+		patch->Add(0x15);
+		patch->AddAdress(regspace + 4);
 		
 		// Assumes callee cleanup and 2 args thus the defined handler needs to be a __fastcall, __stdcall or __thiscall
 		// Push our arguments to handler function
-		data[i++] = 0x8B; // MOV EAX, DWORD PTR SS : [ESP + 8]
-		data[i++] = 0x44;
-		data[i++] = 0xE4;
-		data[i++] = 0x08;
+		patch->Add(0x8B); // MOV EAX, DWORD PTR SS : [ESP + 8]
+		patch->Add(0x44);
+		patch->Add(0xE4);
+		patch->Add(0x08);
 
-		data[i++] = 0x8B; // MOV EDX, DWORD PTR SS : [ESP + 4]
-		data[i++] = 0x54;
-		data[i++] = 0xE4;
-		data[i++] = 0x04;
+		patch->Add(0x8B); // MOV EDX, DWORD PTR SS : [ESP + 4]
+		patch->Add(0x54);
+		patch->Add(0xE4);
+		patch->Add(0x04);
 
-		data[i++] = 0x50; // PUSH EAX
-		data[i++] = 0x52; // PUSH EDX
+		patch->Add(0x50); // PUSH EAX
+		patch->Add(0x52); // PUSH EDX
 		
-
-		data[i++] = 0xE8; // CALL
-		*(PDWORD)&data[i] = (DWORD)(handlerFunc - offset - i - 4);
-		i += 4;
+		patch->Call(handlerFunc);
 		
 		/* Restore registers */
-		data[i++] = 0x8B;
-		data[i++] = 0x0D;
-		*(PDWORD)&data[i] = (DWORD)regspace;
-		i += 4;
-		data[i++] = 0x8B;
-		data[i++] = 0x15;
-		*(PDWORD)&data[i] = (DWORD)regspace + 4;
-		i += 4;
+		patch->Add(0x8B);
+		patch->Add(0x0D);
+		patch->AddAdress(regspace);
 
-		data[i++] = 0xE9; // JMP
-		*(PDWORD)&data[i] = (DWORD)(trampoline - offset - i - 4);
-		i += 4;
+		patch->Add(0x8B);
+		patch->Add(0x15);
+		patch->AddAdress(regspace);
 
-		SafeWrite(offset, data, i);
+		DWORD trampoline = nch.getNextFreeTrampoline();
 
-		
-		DWORD result = nch.createHook(originalFunc, offset);
-		if (result == 0x0)
-			DEBUG_HOOK("Hooking failed.\n");
-		return result;
+		patch->Jmp(trampoline);
+
+		std::vector<std::string>* asmCode = patch->GetAsm();
+		LOG_D("Generated code:");
+		for (auto s : *asmCode)
+		{
+			LOG_D("%s", s);
+		}
+
+		if (!patch->Write())
+		{
+			LOG_E("%s", patch->error.c_str());
+			return 0;
+		}
+		if (patch->warn.length() != 0)
+			LOG_D("Warn: %s", patch->error.c_str());
+
+		return HookManager::CreateHook(originalFunc, patch->address);
 	}
 
 	void HookManager::RemoveHooks()
 	{
-		std::map<uintptr_t, NCodeHookItem> funcs = nch.getHookedFunctions();
 		// Remove CallHooks
-		for (std::map<uintptr_t, NCodeHookItem>::iterator it = funcs.begin(); it != funcs.end(); ++it)
+		for (auto &kv : nch.getHookedFunctions())
 		{
-			DEBUG_HOOK("Removing hook 0x%x (Hooked to 0x%x)\n", it->second.OriginalFunc, it->second.HookFunc);
-			nch.removeHook(it->second.HookFunc);
+			LOG_I("Removing hook 0x%x (Hooked to 0x%x)", kv.second.OriginalFunc, kv.second.HookFunc);
+			nch.removeHook(kv.second.HookFunc);
 		}
 		// Remove EndHooks
-		for (std::vector<Hook*>::iterator it = HookManager::Hooks.begin(); it != HookManager::Hooks.end(); ++it)
+		for (auto &hook : HookManager::Hooks)
 		{
-			DEBUG_HOOK("Removing EndHook 0x%x (Hooked to 0x%x)\n", (*it)->getOriginalFunction(), (*it)->getHookHandler());
-			HookManager::RemoveEndHook((*it)->getOriginalFunction());
+			LOG_I("Removing EndHook 0x%x (Hooked to 0x%x)", hook->originalFunctionOffset, hook->handlerFunctionOffset);
+			HookManager::RemoveEndHook(hook->originalFunctionOffset);
 		}
 	}
 
-	void HookManager::RemoveCallHook(DWORD func)
+	void HookManager::RemoveHook(DWORD func)
 	{
 		nch.removeHook(func);
 	}
 
 	void HookManager::RemoveEndHook(DWORD entryPoint)
 	{
-		DWORD OldProtect;
-		for (std::vector<Hook*>::iterator it = HookManager::Hooks.begin(); it != HookManager::Hooks.end(); ++it)
+		for (auto hook : HookManager::Hooks)
 		{
-			if ((*it)->getOriginalFunction() == entryPoint)
+			if (hook->originalFunctionOffset == entryPoint)
 			{
-				for (std::map<DWORD, CodeBytes*>::iterator it2 = (*it)->overwrittenCode.begin(); it2 != (*it)->overwrittenCode.end(); ++it2)
+				for (auto& kv : hook->overwrittenCode)
 				{
-					DEBUG_HOOK("Restoring code for 0x%x.\n", (*it)->getOriginalFunction());
-					DWORD offset = (DWORD)it2->first;
-
-					CodeBytes* cb = it2->second;
-
-					VirtualProtectEx(GetCurrentProcess(), (void*)((DWORD)offset), cb->size + 4, PAGE_EXECUTE_WRITECOPY, &OldProtect);
-					for (int i = 0;i < cb->size;i++)
-					{
-						DEBUG_HOOK("	Restoring 0x%x at 0x%x\n", cb->bytes[i], (DWORD)offset + i);
-						(*(byte*)((DWORD)offset + i)) = cb->bytes[i];
-					}
-					VirtualProtectEx(GetCurrentProcess(), (void*)((DWORD)offset), cb->size + 4, OldProtect, NULL);
+					LOG_D("Restoring code for 0x%x.", hook->originalFunctionOffset);
+					DWORD offset = (DWORD)kv.first;
+					CodeBytes* cb = kv.second;
+					SafeWrite((DWORD)offset, cb->bytes, cb->size);
 				}
 			}
 		}
 	}
 
-	// Needs to be heavily refactored...
 	EndHookError HookManager::CreateEndHook(std::string name, DWORD entryPoint, DWORD hookFunction)
 	{
-		DEBUG_HOOK("Searching func 0x%x\n", (DWORD)entryPoint);
-
-		if (entryPoint == 0x0)
+		if (entryPoint == 0)
 		{
-			DEBUG_HOOK("Null entrypoint.\n");
+			LOG_E("Null entrypoint.");
 			return EndHookError::NullEntryPoint;
 		}
-		byte newData[5];
-		DWORD OldProtect;
 
-		int maxLength = 512;
+		unsigned int instructionCount;
+		std::vector<_DecodedInst>* disassembled = new std::vector<_DecodedInst>();
 
-		_DecodeResult result;
-		_DecodedInst disassembled[256];
-		unsigned int instructionCount = 0;
-		result = distorm_decode(0, (const unsigned char*)entryPoint, 256, Decode32Bits, disassembled, 256, &instructionCount);
-		if (result != DECRES_SUCCESS)
-		{
-			DEBUG_HOOK("diStorm was unable to disassemble code.\n");
-			return EndHookError::DisassembleFailed;
-		}
+		auto bytes = SafeRead((DWORD)entryPoint, 4096);
+
+		auto disAsm = new DisAssembler();
+
+		auto result = disAsm->DisAssemble(bytes, 4096, instructionCount, *disassembled);
 
 		bool done = false;
 		bool firstReturn = true;
 		Hook* endhook = new Hook(name, (DWORD)entryPoint, (DWORD)hookFunction);
 
-		for (unsigned int i = 0;i < instructionCount;i++)
+		auto funcAnalyzer = new FunctionAnalyzer(entryPoint, *disassembled, instructionCount);
+
+		if (funcAnalyzer->endOfFunction == 0)
 		{
-			DEBUG_HOOK("%08I64x (%02d) %-24s %s%s%s\n", (DWORD)entryPoint + disassembled[i].offset, disassembled[i].size,
-				(char*)disassembled[i].instructionHex.p, (char*)disassembled[i].mnemonic.p, disassembled[i].operands.length != 0 ? " " : "",
-				(char*)disassembled[i].operands.p);
-
-			if (strcmp((char*)disassembled[i].mnemonic.p, "RET") == 0)
-			{
-				DWORD retOffset = ((DWORD)entryPoint + (DWORD)disassembled[i].offset);
-				DEBUG_HOOK("Found RET!\n");
-				if (firstReturn)
-				{
-					DEBUG_HOOK("Saving all code from here.\n");
-					short saveSize;
-					for (unsigned int x = i;x < instructionCount;x++)
-					{
-						if (strcmp((char*)disassembled[x].mnemonic.p, "INT 3") == 0)
-						{
-							DEBUG_HOOK("	Found end @ 0x%x.\n", (DWORD)entryPoint + disassembled[x].offset);
-							saveSize = (5 + 1 + x) - i; // 5 because of JMP size and potential relocation.
-														// 1 because of INT 3.
-							break;
-						}
-					}
-					if (saveSize == 0)
-					{
-						DEBUG_HOOK("ERROR: Unable to find where function ends.\n");
-						return EndHookError::NoFunctionEnd;
-					}
-					byte* savedCode = new byte[saveSize];
-					for (int x = 0;x < saveSize; x++)
-					{
-						savedCode[x] = *(byte*)(retOffset + x);
-						DEBUG_HOOK("Saving byte %0x\n", savedCode[x]);
-					}
-					CodeBytes* cb = new CodeBytes;
-					cb->bytes = savedCode;
-					cb->size = saveSize;
-					endhook->addOverwrittenCode(retOffset, cb);
-					firstReturn = false;
-				}
-
-				DEBUG_HOOK("Hook Func adr = 0x%x\n", (DWORD)hookFunction);
-				DEBUG_HOOK("Calculated jmp: 0x%x\n", (((DWORD)(hookFunction - 5)) - ((DWORD)retOffset)));
-
-				*(PDWORD)&newData[1] = (((DWORD)(hookFunction - 5)) - ((DWORD)retOffset));
-				newData[0] = 0xE9; //JMP (near)
-
-				int sizeRemain = 5 - disassembled[i].size;
-				int relocSize = 5 - disassembled[i].size;
-				DWORD relocOffset = ((DWORD)retOffset + (5 - disassembled[i].size));
-				bool needReloc = false;
-				if (sizeRemain > 0)
-				{
-					DEBUG_HOOK("Reloc instructions: \n");
-					int x = 1;
-					while (sizeRemain > 0)
-					{
-						DEBUG_HOOK("%08I64x (%02d) %-24s %s%s%s\r\n", (DWORD)entryPoint + disassembled[i + x].offset, disassembled[i + x].size,
-							(char*)disassembled[i + x].instructionHex.p, (char*)disassembled[i + x].mnemonic.p, disassembled[i + x].operands.length != 0 ? " " : "",
-							(char*)disassembled[i + x].operands.p);
-						sizeRemain -= disassembled[i + x].size;
-						x++;
-						DEBUG_HOOK("sizeRemain: %d\n", sizeRemain);
-						if ((strcmp("INT3", (char*)disassembled[i + x].mnemonic.p) != 0) &&
-							(strcmp("NOP", (char*)disassembled[i + x].mnemonic.p) != 0))
-						{
-							DEBUG_HOOK("Need to reloc!!\n");
-							needReloc = true;
-						}
-					}
-				}
-
-				if (needReloc)
-				{
-					VirtualProtectEx(GetCurrentProcess(), (void*)(DWORD)relocOffset, 128, PAGE_EXECUTE_WRITECOPY, &OldProtect);
-					byte lastByte;
-					byte writeByte;
-					// Relocating code.
-					for (int x = 0; x < relocSize; x++)
-					{
-						lastByte = 0x90; // nop
-						for (int y = 0;y < 128;y++)
-						{
-							DEBUG_HOOK("Reloc: Write %0x to %0x\n", lastByte, ((DWORD)relocOffset + y));
-							memcpy(&writeByte, &lastByte, 1);
-							lastByte = *(byte*)((DWORD)relocOffset + y);
-							(*(byte*)((DWORD)relocOffset + y)) = writeByte;
-							if (lastByte == 0xCC)
-							{
-								DEBUG_HOOK("Reloc: Done\n");
-								break;
-							}
-						}
-					}
-					// Relocating jumps to code.
-					DEBUG_HOOK("Relocating jumps.\n");
-					for (unsigned int x = 0;x < instructionCount;x++)
-					{
-						if (disassembled[x].mnemonic.p[0] == 'J')
-						{
-							DWORD jumpOffset = (DWORD)entryPoint + (DWORD)disassembled[x].offset;
-							byte jmpCode = *(byte*)((DWORD)jumpOffset + 1);
-
-							if (disassembled[x].size == 5)
-								DEBUG_HOOK("0x%x == Long jump.\n", (DWORD)disassembled[x].offset);
-
-							DWORD jumpTo = ((DWORD)jumpOffset + 2 + (int)jmpCode);
-							// The offset we disassembled.
-							if (jumpTo >= retOffset && jumpTo <= ((DWORD)retOffset + disassembled[i].size + relocSize))
-							{
-								VirtualProtectEx(GetCurrentProcess(), (void*)((DWORD)jumpOffset), 4, PAGE_EXECUTE_WRITECOPY, &OldProtect);
-								DEBUG_HOOK("Found jump that needs to be relocated by %d.\n", relocSize);
-								DEBUG_HOOK("	Jump @ 0x%x\n", (DWORD)jumpOffset);
-								DEBUG_HOOK("	JumpTo: 0x%x\n", (DWORD)jumpTo);
-								byte* savedCode = new byte[1];
-								savedCode[0] = *(byte*)(jumpOffset + 1);
-								DEBUG_HOOK("	Saving byte 0x%x\n", savedCode[0]);
-								CodeBytes* cb = new CodeBytes;
-								cb->bytes = savedCode;
-								cb->size = 1;
-								endhook->addOverwrittenCode((DWORD)jumpOffset + 1, cb);
-								(*(byte*)((DWORD)jumpOffset + 1)) = jmpCode + ((byte)relocSize);
-								DEBUG_HOOK("	New value = 0x%x\n", *(byte*)(DWORD(jumpOffset + 1)));
-								VirtualProtectEx(GetCurrentProcess(), (void*)((DWORD)jumpOffset), 4, OldProtect, NULL);
-							}
-						}
-					}
-				}
-
-
-				VirtualProtectEx(GetCurrentProcess(), (void*)((DWORD)entryPoint + disassembled[i].offset), 10, PAGE_EXECUTE_WRITECOPY, &OldProtect);
-				(*(byte*)((DWORD)entryPoint + disassembled[i].offset)) = newData[0];
-				(*(byte*)((DWORD)entryPoint + disassembled[i].offset + 1)) = newData[1];
-				(*(byte*)((DWORD)entryPoint + disassembled[i].offset + 2)) = newData[2];
-				(*(byte*)((DWORD)entryPoint + disassembled[i].offset + 3)) = newData[3];
-				(*(byte*)((DWORD)entryPoint + disassembled[i].offset + 4)) = newData[4];
-				VirtualProtectEx(GetCurrentProcess(), (void*)((DWORD)entryPoint + disassembled[i].offset), 10, OldProtect, NULL);
-				DEBUG_HOOK("Hooking done.\n");
-			}
-			else if (strcmp((char*)disassembled[i].mnemonic.p, "INT 3") == 0)
-			{
-				DEBUG_HOOK("0x%x: End of func!\n", (DWORD)entryPoint + disassembled[i].offset);
-				HookManager::Hooks.push_back(endhook);
-				done = true;
-			}
-
-			if (done) return EndHookError::Success;
+			LOG_E("Unable to find where function ends.");
+			return EndHookError::NoFunctionEnd;
 		}
+
+		auto rets = funcAnalyzer->FindByMnemonic("RET");
+
+		DWORD retOffset = ((DWORD)(funcAnalyzer->entryPoint + rets.front().offset));
+		
+		LOG_D("First RET offset found at 0x%x", retOffset);
+		LOG_D("Found %d RET instructions.", rets.size());
+
+		int saveSize = funcAnalyzer->endOfFunction - retOffset;
+		byte* savedCode = SafeRead(retOffset, saveSize);
+		CodeBytes* cb = new CodeBytes;
+		cb->bytes = savedCode;
+		cb->size = saveSize;
+		endhook->addOverwrittenCode(retOffset, cb);
+
+		for (auto& ret : rets)
+		{
+			for (unsigned int i=0;i<funcAnalyzer->disassembled.size();i++)
+			{
+				if (ret.offset == funcAnalyzer->disassembled[i].offset)
+				{
+					char* mnemonic = (char*)funcAnalyzer->disassembled[i + 1].mnemonic.p;
+
+					if ((strcmp("INT 3", mnemonic) != 0) &&
+						(strcmp("NOP", mnemonic) != 0))
+					{
+						LOG_D("The return instruction at 0x%x is not the last one so we need to relocate the code",
+							(DWORD)funcAnalyzer->entryPoint + ret.offset);
+						LOG_D("The relocation code is not available so we need to cancel.");
+
+						auto asmCode = disAsm->GetAsm(funcAnalyzer->disassembled, i, 3);
+						for (auto& line : *asmCode)
+						{
+							Log::Debug(LogModule::Hooking, "%s", line.c_str());
+						}
+
+						return EndHookError::UnableToRelocate;
+					}
+				}
+			}
+			auto patch = new MemoryPatch(5, (DWORD)(funcAnalyzer->entryPoint + ret.offset));
+			patch->Jmp(hookFunction);
+			patch->Write();
+		}
+		free(disassembled);
 
 		return EndHookError::Success;
 	};

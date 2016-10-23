@@ -17,7 +17,7 @@ namespace EngineEx
 	{
 		HANDLE hThreadSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
 		if (hThreadSnapshot == INVALID_HANDLE_VALUE) {
-			//throw std::runtime_error("GetMainThreadId failed");
+			return 0;
 		}
 		THREADENTRY32 tEntry;
 		tEntry.dwSize = sizeof(THREADENTRY32);

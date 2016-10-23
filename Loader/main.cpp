@@ -24,7 +24,6 @@ void Log(const char* text, ...)
 	fputs(buffer, f);
 }
 
-
 void MsgError(char* error, ...) {
 	va_list args;
 	char buffer[4096];

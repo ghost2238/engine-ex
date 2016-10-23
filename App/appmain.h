@@ -1,7 +1,3 @@
-#include <windows.h>
-#include <stdio.h>
-#include <string>
-
 // Include core
 #pragma comment(lib, "../__build/Core.lib")
 #include "../Core/Source/core.h"
@@ -12,6 +8,8 @@ using namespace EngineEx;
 #include "hooks.h"
 #include "Game/foclient.h"
 
+#include <windows.h>
+#include <stdio.h>
+#include <string>
+
 bool AppMain();
-bool AppFinish();
-bool IsFinished();

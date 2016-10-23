@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+
+#include "debug.h"
 #include "../Lib/diStorm/distorm.h"
 
 namespace EngineEx
@@ -14,7 +16,8 @@ namespace EngineEx
 	void SafeWrite16(DWORD address, byte* bytes);
 	void SafeWrite32(DWORD address, byte* bytes);
 
-	void MemLog(const char* Text, ...);
+	byte* SafeRead(DWORD address, int bytes);
+
 	DWORD FindEmptySpace(int neededBytes, DWORD beginOffset);
 	DWORD FindEmptySpace(int neededBytes);
 	DWORD AllocateSpace(int neededBytes);
