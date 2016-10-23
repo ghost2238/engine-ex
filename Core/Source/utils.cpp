@@ -65,12 +65,12 @@ namespace EngineEx
 	{
 		Log::Trace(LogModule::Utils, "GetAsm");
 		auto lines = new std::vector<std::string>();
-		int end = start + count;
+		unsigned int end = start + count;
 		if (end > instructions.size()-1)
 			end = instructions.size()-1;
 
 		Log::Trace(LogModule::Utils, "start: %d, end: %d, size: %d", start, end, instructions.size());
-		for (int i = start;i < end; i++)
+		for (unsigned int i = start;i < end; i++)
 		{
 			lines->push_back(string_format("%-12s | %s%s%s", (char*)instructions[i].instructionHex.p,
 				(char*)instructions[i].mnemonic.p, instructions[i].operands.length != 0 ? " " : "",
@@ -118,7 +118,7 @@ namespace EngineEx
 	std::vector<std::string>* MemoryPatch::GetAsm()
 	{
 		auto disasm = new DisAssembler();
-		return disasm->GetAsm(this->data, this->size);
+		return disasm->GetAsm(this->data, this->currentPos);
 	}
 
 	void MemoryPatch::Add(byte b)
@@ -156,6 +156,96 @@ namespace EngineEx
 		this->AddAdress(adress - this->address - this->currentPos - 4);
 	}
 
+	// This should be called when hooking a function (begin/before hook) and being in the injected setup code.
+	// We use the already pushed arguments and push them again, so that we can restore the stack later and not have the handler function do the cleanup.
+	// Keep in mind that all non SP registers can be used since we have saved those.
+	void MemoryPatch::PushStackArgs(CallingConvention call, int count)
+	{
+		if (call == CallingConvention::stdcall) 
+		{
+			for (int x = 0; x < count;x++)
+			{
+				int i = 4 * count;
+
+				this->Add(0x8B); // MOV EAX, DWORD PTR SS : [ESP + i]
+				this->Add(0x44);
+				this->Add(0xE4);
+				this->Add(i);
+				this->Add(0x50);
+			}
+		}
+	}
+
+	void MemoryPatch::SaveRegisters(DWORD to)
+	{
+		// EAX
+		this->Add(0xA3);
+		this->AddAdress(to);
+		// ECX
+		this->Add(0x89);
+		this->Add(0x0D);
+		this->AddAdress(to + 4);
+		// EDX
+		this->Add(0x89);
+		this->Add(0x15);
+		this->AddAdress(to + 8);
+		// EBX
+		this->Add(0x89);
+		this->Add(0x1D);
+		this->AddAdress(to + 12);
+		// ESP
+		this->Add(0x89);
+		this->Add(0x25);
+		this->AddAdress(to + 16);
+		// EBP
+		this->Add(0x89);
+		this->Add(0x2D);
+		this->AddAdress(to + 20);
+		// ESI
+		this->Add(0x89);
+		this->Add(0x35);
+		this->AddAdress(to + 24);
+		// EDI
+		this->Add(0x89);
+		this->Add(0x3D);
+		this->AddAdress(to + 28);
+	}
+
+	void MemoryPatch::RestoreRegisters(DWORD from)
+	{
+		// EAX
+		this->Add(0xA1);
+		this->AddAdress(from);
+		// ECX
+		this->Add(0x8B);
+		this->Add(0x0D);
+		this->AddAdress(from + 4);
+		// EDX
+		this->Add(0x8B);
+		this->Add(0x15);
+		this->AddAdress(from + 8);
+		// EBX
+		this->Add(0x8B);
+		this->Add(0x1D);
+		this->AddAdress(from + 12);
+		// ESP
+		this->Add(0x8B);
+		this->Add(0x25);
+		this->AddAdress(from + 16);
+		// EBP
+		this->Add(0x8B);
+		this->Add(0x2D);
+		this->AddAdress(from + 20);
+		// ESI
+		this->Add(0x8B);
+		this->Add(0x35);
+		this->AddAdress(from + 24);
+		// EDI
+		this->Add(0x8B);
+		this->Add(0x3D);
+		this->AddAdress(from + 28);
+	}
+
 	bool MemoryPatch::Write()
 	{
 		if (this->currentPos < this->size)
@@ -166,6 +256,7 @@ namespace EngineEx
 			return false;
 		}
 		SafeWrite(this->address, this->data, this->size);
+
 		return true;
 	}
 

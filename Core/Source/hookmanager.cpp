@@ -2,8 +2,9 @@
 
 namespace EngineEx
 {
-	std::map<uintptr_t, Hook> HookManager::Hooks;
+	std::map<uintptr_t, Hook> HookManager::hooks;
 	std::set<uintptr_t> HookManager::freeTrampolines;
+	std::map<uintptr_t, MemoryPatch> HookManager::patches;
 
 	#define LOG_D(...) Log::Debug(LogModule::Hooking, __VA_ARGS__);
 	#define LOG_E(...) Log::Error(LogModule::Hooking, __VA_ARGS__);
@@ -36,9 +37,18 @@ namespace EngineEx
 	}
 
 	// Called by generated code
+	
+	int count;
+	DWORD lastTick;
 	void __stdcall HookManager::LogFunc(char* text)
 	{
-		printf("%s", text);
+		count++;
+		DWORD now = GetTickCount();
+		if ((now - lastTick) > 500)
+		{
+			printf("%s: has been called %d times since monitoring started.\n", text, count);
+			lastTick = now;
+		}
 	}
 
 	uintptr_t HookManager::GetFreeTrampoline()
@@ -55,7 +65,7 @@ namespace EngineEx
 
 	bool HookManager::IsAlreadyHooked(DWORD originalFunc)
 	{
-		for (auto& kv : HookManager::Hooks)
+		for (auto& kv : HookManager::hooks)
 		{
 			if (kv.second.originalFunc == originalFunc)
 			{
@@ -68,7 +78,7 @@ namespace EngineEx
 
 	Hook* HookManager::CreateHook(DWORD originalFunc, DWORD handlerFunc)
 	{
-		for (auto& kv : HookManager::Hooks)
+		for (auto& kv : HookManager::hooks)
 		{
 			if (kv.second.originalFunc == originalFunc)
 			{
@@ -124,6 +134,9 @@ namespace EngineEx
 		patch->Write();
 		patch2->Write();
 
+		HookManager::patches.insert(std::make_pair((uintptr_t)patch->address, *patch));
+		HookManager::patches.insert(std::make_pair((uintptr_t)patch->address, *patch2));
+
 		LOG_T("Flushing instruction cache");
 		FlushInstructionCache(GetCurrentProcess(), (LPCVOID)trampolineAddr, MaxTotaltTrampolineSize);
 		FlushInstructionCache(GetCurrentProcess(), (LPCVOID)originalFunc, useAbsJump ? AbsJumpPatchSize : NearJumpPatchSize);
@@ -132,7 +145,7 @@ namespace EngineEx
 		freeTrampolines.erase(trampolineAddr);
 
 		auto hook = new Hook("", (uintptr_t)originalFunc, (uintptr_t)handlerFunc, trampolineAddr, offset);
-		HookManager::Hooks.insert(std::make_pair((uintptr_t)handlerFunc, *hook));
+		HookManager::hooks.insert(std::make_pair((uintptr_t)handlerFunc, *hook));
 
 		HookManager::LogStatus();
 		return hook;
@@ -212,41 +225,16 @@ namespace EngineEx
 		// 4 * 8 for all registers
 		DWORD regspace = Allocate(32);
 
-		auto patch = new MemoryPatch(44);
+		auto patch = new MemoryPatch(150);
 
-		/* Save registers (only EAX/EDX for now) */
-		patch->Add(0x89);
-		patch->Add(0x0D);
-		patch->AddAdress(regspace);
-		patch->Add(0x89);
-		patch->Add(0x15);
-		patch->AddAdress(regspace + 4);
+		auto convention = CallingConvention::stdcall;
 		
-		// Assumes callee cleanup and 2 args thus the defined handler needs to be a __fastcall, __stdcall or __thiscall
-		// Push our arguments to handler function
-		patch->Add(0x8B); // MOV EAX, DWORD PTR SS : [ESP + 8]
-		patch->Add(0x44);
-		patch->Add(0xE4);
-		patch->Add(0x08);
-
-		patch->Add(0x8B); // MOV EDX, DWORD PTR SS : [ESP + 4]
-		patch->Add(0x54);
-		patch->Add(0xE4);
-		patch->Add(0x04);
-
-		patch->Add(0x50); // PUSH EAX
-		patch->Add(0x52); // PUSH EDX
+		patch->SaveRegisters(regspace);
+		patch->PushStackArgs(convention, 6);
 		
 		patch->Call(handlerFunc);
 		
-		/* Restore registers */
-		patch->Add(0x8B);
-		patch->Add(0x0D);
-		patch->AddAdress(regspace);
-
-		patch->Add(0x8B);
-		patch->Add(0x15);
-		patch->AddAdress(regspace);
+		patch->RestoreRegisters(regspace);
 
 		patch->Jmp(trampoline);
 
@@ -265,13 +253,16 @@ namespace EngineEx
 		if (patch->warn.length() != 0)
 			LOG_D("Warn: %s", patch->error.c_str());
 
+		auto address = patch->address;
+		HookManager::patches.insert(std::make_pair(address, *patch));
+
 		return HookManager::CreateHook(originalFunc, patch->address);
 	}
 
 	void HookManager::RemoveHooks()
 	{
 		// Remove hooks
-		for (auto &hook : HookManager::Hooks)
+		for (auto &hook : HookManager::hooks)
 		{
 			LOG_I("Removing 0x%x hook (hooked to 0x%x)", hook.second.originalFunc, hook.second.hookFunc);
 			HookManager::RemoveHook(&hook.second);
@@ -283,7 +274,7 @@ namespace EngineEx
 	{
 		LOG_I("Removing hook of 0x%x");
 		SafeMemCpy((void*)hook->originalFunc, (void*)hook->trampoline, hook->patchSize);
-		HookManager::Hooks.erase(hook->hookFunc);
+		HookManager::hooks.erase(hook->hookFunc);
 		HookManager::freeTrampolines.insert(hook->trampoline);
 		freeTrampolines.insert(hook->trampoline);
 		FlushInstructionCache(GetCurrentProcess(), (LPCVOID)hook->originalFunc, hook->patchSize);
@@ -292,12 +283,13 @@ namespace EngineEx
 
 	void HookManager::LogStatus()
 	{
-		LOG_D("Current active hooks: %d, free trampolines: %d ", HookManager::Hooks.size(), HookManager::freeTrampolines.size());
+		LOG_D("Current active hooks: %d, free trampolines: %d, patches written: %d", 
+			HookManager::hooks.size(), HookManager::freeTrampolines.size(), HookManager::patches.size());
 	}
 
 	void HookManager::RemoveEndHook(DWORD entryPoint)
 	{
-		for (auto hook : HookManager::Hooks)
+		for (auto hook : HookManager::hooks)
 		{
 			if (hook.second.originalFunc == entryPoint)
 			{
@@ -388,8 +380,6 @@ namespace EngineEx
 			patch->Write();
 		}
 		free(disassembled);
-
-		
 
 		return EndHookError::Success;
 	};

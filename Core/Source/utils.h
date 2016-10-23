@@ -12,6 +12,14 @@ namespace EngineEx
 {
 	std::string string_format(const char* fmt, ...);
 
+	enum CallingConvention
+	{
+		c_decl, // cdecl
+		stdcall,
+		fastcall,
+		thiscall
+	};
+
 	struct CodeBytes
 	{
 		byte* bytes;
@@ -22,7 +30,6 @@ namespace EngineEx
 	{
 		public:
 			//char* FromString(char* string);
-
 	};
 
 	bool requiresAbsJump(uintptr_t from, uintptr_t to);
@@ -66,10 +73,16 @@ namespace EngineEx
 			void JmpAbs(DWORD adress);
 			void Push(DWORD adress);
 
+			void PushStackArgs(CallingConvention call, int count);
+
+			void SaveRegisters(DWORD to);
+			void RestoreRegisters(DWORD from);
+
 			bool Write();
 
 			DWORD address;
 			byte* data;
+			byte* overWritten;
 			std::string error;
 			std::string warn;
 			int size;

@@ -167,7 +167,6 @@
     <ClInclude Include="Source\core.h" />
     <ClInclude Include="Source\debug.h" />
     <ClInclude Include="Source\hook.h" />
-    <ClInclude Include="Source\hookmacros.h" />
     <ClInclude Include="Source\hookmanager.h" />
     <ClInclude Include="Source\memory.h" />
     <ClInclude Include="Source\offsetmacros.h" />
@@ -189,6 +188,7 @@
     <ClCompile Include="Lib\fmt\posix.cc" />
     <ClCompile Include="Lib\JsonCPP\jsoncpp.cpp" />
     <ClCompile Include="Source\Config\configmanager.cpp" />
+    <ClCompile Include="Source\core.cpp" />
     <ClCompile Include="Source\debug.cpp" />
     <ClCompile Include="Source\hook.cpp" />
     <ClCompile Include="Source\hookmanager.cpp" />

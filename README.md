@@ -57,10 +57,7 @@ All of these are currently done using detour-style hooks where a JMP is written 
 - This framework is not made to facilitate cheating in multiplayer games, so there will not be any anti-cheat engine evasion code or similiar. The techniques used are very obvious for standard cheating engines.
 
 ## TODO
-- [ ] Better interface with core library, remove macros and other ugly stuff.
-- [ ] Better separation between game/app part, too tangled right now due to testing.
-- [ ] Switch to the Keystone framework for machine code generation.
-- [ ] Switch to Capstone for the disassembly parts.
+- [X] Better interface with core library, remove macros and other ugly stuff.
 - [ ] Guess calling convention and number of arguments of a target function. Static/dynamic analysis.
 - [ ] Embedded HTTP server to facilitate UI. [Kore](https://github.com/jorisvink/kore) looks good.
 - [ ] Scripting language, both for exposing your API and EngineEx internals.
@@ -68,9 +65,13 @@ All of these are currently done using detour-style hooks where a JMP is written 
 - [ ] Dump specific registers at target instruction offset.
 - [ ] Read symbols from JSON file.
 - [ ] Read symbols from PDB.
+- [ ] Relocating functions to another other place in memory.
+- [ ] Proper jump relocation
 
 ## Considering
 - Use of Frida core as it has a lot of really advanced hooking functionality already.
+- Switch to the Keystone framework for machine code generation.
+- Switch to Capstone for the disassembly parts.
 
 ## Directories
 | Directory  | Purpose |
