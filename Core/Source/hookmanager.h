@@ -41,7 +41,8 @@ namespace EngineEx
 		static void RemoveHooks();
 		static void LogStatus();
 
-		static std::map<std::string, FunctionSymbol> functionSymbols;
+		static std::map<std::string, VariableSymbol> variables;
+		static std::map<std::string, FunctionSymbol> functions;
 	private:
 		static Hook* CreateHook(DWORD originalFunc, DWORD handlerFunc);
 		static uintptr_t GetFreeTrampoline();

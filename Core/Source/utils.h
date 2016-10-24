@@ -27,6 +27,13 @@ namespace EngineEx
 		short size;
 	};
 
+	struct VariableSymbol
+	{
+		std::string name;
+		DWORD offset;
+		std::string type;
+	};
+
 	struct FunctionSymbol
 	{
 		std::string name;
@@ -43,8 +50,8 @@ namespace EngineEx
 	};
 
 	// String functions
-	inline void split(const std::string &s, char delim, std::vector<std::string> &elems);
-	inline std::vector<std::string> split(const std::string &s, char delim);
+	void split(const std::string &s, char delim, std::vector<std::string> &elems);
+	std::vector<std::string> split(const std::string &s, char delim);
 	bool equals(const std::string &a, const std::string &b);
 	//bool equals(const std::string &a, char* b);
 	inline std::string format(const char* fmt, ...);
@@ -52,7 +59,6 @@ namespace EngineEx
 	// Misc, maybe move these somewhere
 	bool requiresAbsJump(uintptr_t from, uintptr_t to);
 	int getMinOffset(const unsigned char* codePtr, unsigned int jumpPatchSize);
-	std::vector<FunctionSymbol>* readJsonSymbols();
 	
 	// Threading
 	void ResumeMainThread();

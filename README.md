@@ -66,10 +66,13 @@ All of these are currently done using detour-style hooks where a JMP is written 
 - [ ] Read symbols from JSON file.
   - [X] Functions
   - [ ] Classes, ability to call hook functions with ClassName::FunctionName
-  - [ ] Variables
+  - [X] Variables
 - [ ] Read symbols from PDB.
 - [ ] Relocating functions to another other place in memory.
 - [ ] Proper jump relocation
+- [ ] Helpers for calling functions easily
+  - [ ] Ability to call functions with non-standard calling conventions.
+- [ ] Example project should be with some binary that's included in the repo.
 - [ ] x64 support
 - [ ] Linux support
   - [ ] GCC Compilation

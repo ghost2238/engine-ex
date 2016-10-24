@@ -5,7 +5,8 @@ namespace EngineEx
 	std::map<uintptr_t, Hook> HookManager::hooks;
 	std::set<uintptr_t> HookManager::freeTrampolines;
 	std::map<uintptr_t, MemoryPatch> HookManager::patches;
-	std::map<std::string, FunctionSymbol> HookManager::functionSymbols;
+	std::map<std::string, FunctionSymbol> HookManager::functions;
+	std::map<std::string, VariableSymbol> HookManager::variables;
 
 	#define LOG_D(...) Log::Debug(LogModule::Hooking, __VA_ARGS__);
 	#define LOG_E(...) Log::Error(LogModule::Hooking, __VA_ARGS__);
@@ -37,22 +38,65 @@ namespace EngineEx
 		LOG_T("Filled trampoline buffer with %d elements.", HookManager::freeTrampolines.size());
 
 		LOG_D("Reading JSON symbolstable.");
-		auto symbols = readJsonSymbols();
-		for (auto &symbol : *symbols)
+		
+		std::ifstream stream("./symbols.json");
+
+		if (!stream.is_open())
 		{
-			if (symbol.name.empty())
-			{
-				LOG_D("Skipping function with empty name.");
-				continue;
-			}
-			HookManager::functionSymbols[symbol.name.c_str()] = symbol;
+			Log::Error(LogModule::Global, "Error, unable to open ./symbols.json");
 		}
-		LOG_D("Loaded %d functions", symbols->size());
+		else
+		{
+			Json::Value root;
+			stream >> root;
+			const Json::Value funcs = root["Functions"];
+			for (unsigned int i = 0; i < funcs.size(); ++i)
+			{
+				LOG_T("Reading function symbol %d", i + 1);
+				auto symbol = new FunctionSymbol;
+				symbol->name = funcs[i].get("Name", "").asString();
+				LOG_T("Read name");
+				const char* off = funcs[i].get("Offset", 0).asCString();
+				int number = (int)strtol(off, NULL, 16);
+				if (number == 0) number = (int)strtol(off, NULL, 0);
+				symbol->offset = number;
+				LOG_T("Read offset");
+				symbol->returnValue = funcs[i].get("RetVal", "void").asString();
+				LOG_T("Read return value");
+				auto argStr = funcs[i].get("Args", "").asString();
+				symbol->arguments = split(argStr, ',');
+				HookManager::functions[symbol->name] = *symbol;
+				LOG_T("[0x%x] %s %s(%s)", symbol->offset, symbol->returnValue.c_str(), symbol->name.c_str(), argStr.c_str());
+			}
+			if (funcs.size() != HookManager::functions.size())
+				LOG_E("  %d functions was found and only %d was added.", funcs.size(), HookManager::functions.size());
+			LOG_D("  Loaded %d functions", HookManager::functions.size());
 
-		if(symbols->size() != HookManager::functionSymbols.size())
-			LOG_E("%d read, but only %d is parsed.", symbols->size(), HookManager::functionSymbols.size());
+			const Json::Value vars = root["Variables"];
+			for (unsigned int i = 0; i < vars.size(); ++i)
+			{
+				LOG_T("Reading variable symbol %d", i + 1);
+				auto symbol = new VariableSymbol;
+				symbol->name = vars[i].get("Name", "").asString();
+				LOG_T("Read name");
+				const char* off = vars[i].get("Offset", 0).asCString();
+				int number = (int)strtol(off, NULL, 16);
+				if (number == 0) number = (int)strtol(off, NULL, 0);
+				symbol->offset = number;
+				LOG_T("Read offset");
+				symbol->type = vars[i].get("Type", "").asString();
+				LOG_T("Read type");
+				HookManager::variables[symbol->name] = *symbol;
+				LOG_T("[0x%x] %s - %s", symbol->offset, symbol->name.c_str(), symbol->type.c_str());
+			}
 
-		delete(symbols);
+			if (vars.size() != HookManager::variables.size())
+				LOG_E("  %d variables was found and only %d was added.", vars.size(), HookManager::variables.size());
+			LOG_D("  Loaded %d variables", HookManager::variables.size());
+
+		}
+		
+		LOG_I("Initialization done.");
 	}
 
 	// Called by generated code
@@ -174,7 +218,7 @@ namespace EngineEx
 
 	Hook* HookManager::MonitorCalls(const std::string & functionName)
 	{
-		auto symbol = HookManager::functionSymbols[functionName];
+		auto symbol = HookManager::functions[functionName];
 		if (symbol.name.empty())
 			return NULL;
 		return MonitorCalls((DWORD)symbol.offset, symbol.name.c_str());
@@ -332,13 +376,12 @@ namespace EngineEx
 
 	Hook* HookManager::CreateEndHook(const std::string& functionName, DWORD hookFunction)
 	{
-		auto symbol = HookManager::functionSymbols[functionName];
+		auto symbol = HookManager::functions[functionName];
 		if (symbol.name.empty())
 		{
 			LOG_E("Symbol %s not found, unable to resolve offset.", functionName);
 			return NULL;
 		}
-		LOG_D("size: %d", HookManager::functionSymbols.size());
 
 		return HookManager::CreateEndHook(functionName, symbol.offset, hookFunction);
 	}

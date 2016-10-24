@@ -23,13 +23,13 @@ bool AppMain()
 	// Uses JSON symbol table to resolve the offset.
 	auto draw = HookManager::CreateEndHook("FOClient_ConsoleDraw", (DWORD)&OnDrawConsole);
 
-	auto a = HookManager::MonitorCalls("FOClient_AddMess");
+	//auto a = HookManager::MonitorCalls("FOClient_AddMess");
 
 	//HookManager::CreateBeforeHook((DWORD)Offset_SpriteManager_DrawStr, (DWORD)&StringFinder);
 
 	//auto before = HookManager::CreateBeforeHook((DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest2);
 
-	//auto end = HookManager::CreateEndHook("", (DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest);
+	auto end = HookManager::CreateEndHook("FOClient_AddMess", (DWORD)&AddMessTest);
 	//auto hook = HookManager::ReplaceFunction(before->hookFunc, (DWORD)&AddMessTest);
 	//auto monitor = HookManager::MonitorCalls(hook->hookFunc,  "hehe");
 

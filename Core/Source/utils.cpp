@@ -53,8 +53,8 @@ namespace EngineEx
 		auto result = distorm_decode(0, bytes, length, Decode32Bits, disassembled, length, &instructionCount);
 		if (result != DECRES_SUCCESS)
 		{
-			this->error = "diStorm was unable to disassemble code.\n";
 			Log::Error(LogModule::Utils, "diStorm was unable to disassemble code");
+			return result;
 		}
 		for (unsigned int i = 0;i < instructionCount;i++)
 			disassembledCode.push_back(disassembled[i]);
@@ -321,46 +321,8 @@ namespace EngineEx
 		return OpenThread(THREAD_SUSPEND_RESUME, false, result);
 	}
 
-	std::vector<FunctionSymbol>* readJsonSymbols()
-	{
-		Json::Value root;
-		std::ifstream stream("./symbols.json");
-
-		if (stream.is_open())
-			stream >> root;
-		else
-		{
-			Log::Error(LogModule::Global, "Error, unable to open symbols");
-			return NULL;
-		}
-		const Json::Value funcs = root["Functions"];
-
-		auto symbols = new std::vector<FunctionSymbol>;
-
-		for (unsigned int i = 0; i < funcs.size(); ++i)
-		{
-			LOG_T("Reading function symbol %d", i+1);
-			FunctionSymbol* symbol = new FunctionSymbol;
-			symbol->name = funcs[i].get("Name", "").asString();
-			LOG_T("Read name");
-			const char* off = funcs[i].get("Offset", 0).asCString();
-			int number = (int)strtol(off, NULL, 16);
-			if(number == 0) number = (int)strtol(off, NULL, 0);
-			symbol->offset = number;
-			LOG_T("Read offset");
-			symbol->returnValue = funcs[i].get("RetVal", "void").asString();
-			LOG_T("Read return value");
-			auto argStr = funcs[i].get("Args", "").asString();
-			symbol->arguments = split(argStr, ',');
-			symbols->push_back(*symbol);
-			LOG_D("[0x%x] %s %s(%s)", symbol->offset, symbol->returnValue.c_str(), symbol->name.c_str(), argStr.c_str());
-		}
-
-		return symbols;
-	}
-
 	// String functions
-	inline void split(const std::string &s, char delim, std::vector<std::string> &elems) {
+	void split(const std::string &s, char delim, std::vector<std::string> &elems) {
 		std::stringstream ss;
 		ss.str(s);
 		std::string item;
@@ -369,7 +331,7 @@ namespace EngineEx
 		}
 	}
 
-	inline std::vector<std::string> split(const std::string &s, char delim) {
+	std::vector<std::string> split(const std::string &s, char delim) {
 		std::vector<std::string> elems;
 		split(s, delim, elems);
 		return elems;
