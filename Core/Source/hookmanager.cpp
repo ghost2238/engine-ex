@@ -139,7 +139,7 @@ namespace EngineEx
 		return false;
 	}
 
-	Hook* HookManager::CreateHook(DWORD originalFunc, DWORD handlerFunc)
+	Hook* HookManager::CreateHook(DWORD originalFunc, DWORD handlerFunc, HookType type)
 	{
 		for (auto& kv : HookManager::hooks)
 		{
@@ -209,7 +209,7 @@ namespace EngineEx
 		LOG_T("Removing used trampoline from free trampoline pool");
 		freeTrampolines.erase(trampolineAddr);
 
-		auto hook = new Hook("", (uintptr_t)originalFunc, (uintptr_t)handlerFunc, trampolineAddr, offset);
+		auto hook = new Hook("", (uintptr_t)originalFunc, (uintptr_t)handlerFunc, trampolineAddr, offset, type);
 		HookManager::hooks.insert(std::make_pair((uintptr_t)handlerFunc, *hook));
 
 		HookManager::LogStatus();
@@ -262,13 +262,13 @@ namespace EngineEx
 		if(patch->warn.length() != 0)
 			Log::Debug(LogModule::Hooking, "Warn: %s", patch->error.c_str());
 
-		return HookManager::CreateHook(originalFunc, patch->address);
+		return HookManager::CreateHook(originalFunc, patch->address, HookType::Monitor);
 	}
 
 	Hook* HookManager::ReplaceFunction(unsigned long originalFunc, unsigned long handlerFunc)
 	{
 		LOG_I("Replacing 0x%x with 0x%x", originalFunc, handlerFunc);
-		return HookManager::CreateHook(originalFunc, handlerFunc);
+		return HookManager::CreateHook(originalFunc, handlerFunc, HookType::FunctionReplacement);
 	}
 
 	DWORD HookManager::GetDLLFunction(const std::string& dllName, const std::string& funcName)
@@ -329,11 +329,12 @@ namespace EngineEx
 		auto address = patch->address;
 		HookManager::patches.insert(std::make_pair(address, *patch));
 
-		return HookManager::CreateHook(originalFunc, patch->address);
+		return HookManager::CreateHook(originalFunc, patch->address, HookType::BeforeHook);
 	}
 
 	void HookManager::RemoveHooks()
 	{
+		LOG_D("Removing all active hooks (%d)", HookManager::hooks.size());
 		for (auto &hook : HookManager::hooks)
 			HookManager::RemoveHook(&hook.second);
 
@@ -342,36 +343,34 @@ namespace EngineEx
 
 	void HookManager::RemoveHook(Hook* hook)
 	{
-		LOG_I("Removing 0x%x hook (hooked to 0x%x)", hook->originalFunc, hook->hookFunc);
-		SafeMemCpy((void*)hook->originalFunc, (void*)hook->trampoline, hook->patchSize);
-		HookManager::hooks.erase(hook->hookFunc);
+		
+		LOG_D("Removing 0x%x hook (hooked to 0x%x)", hook->originalFunc, hook->hookFunc);
+
+		if(!hook->type == HookType::EndHook)
+			SafeMemCpy((void*)hook->originalFunc, (void*)hook->trampoline, hook->patchSize);
+		
 		HookManager::freeTrampolines.insert(hook->trampoline);
 		freeTrampolines.insert(hook->trampoline);
 		FlushInstructionCache(GetCurrentProcess(), (LPCVOID)hook->originalFunc, hook->patchSize);
-		HookManager::LogStatus();
+
+		// Restore other overwritten code, like in end hooks.
+		if (hook->type == HookType::EndHook)
+		{
+			for (auto& kv : hook->overwrittenCode)
+			{
+				LOG_D("Restoring overwritten instructions for 0x%x.",hook->originalFunc);
+				DWORD offset = (DWORD)kv.first;
+				CodeBytes* cb = kv.second;
+				SafeWrite((DWORD)offset, cb->bytes, cb->size);
+			}
+		}
+		HookManager::hooks.erase(hook->hookFunc);
 	}
 
 	void HookManager::LogStatus()
 	{
 		LOG_D("Current active hooks: %d, free trampolines: %d, patches written: %d", 
 			HookManager::hooks.size(), HookManager::freeTrampolines.size(), HookManager::patches.size());
-	}
-
-	void HookManager::RemoveEndHook(DWORD entryPoint)
-	{
-		for (auto hook : HookManager::hooks)
-		{
-			if (hook.second.originalFunc == entryPoint)
-			{
-				for (auto& kv : hook.second.overwrittenCode)
-				{
-					LOG_D("Restoring code for 0x%x.", hook.second.originalFunc);
-					DWORD offset = (DWORD)kv.first;
-					CodeBytes* cb = kv.second;
-					SafeWrite((DWORD)offset, cb->bytes, cb->size);
-				}
-			}
-		}
 	}
 
 	Hook* HookManager::CreateEndHook(const std::string& functionName, DWORD hookFunction)
@@ -392,7 +391,6 @@ namespace EngineEx
 		{
 			LOG_E("Null entrypoint.");
 			return NULL;
-			//return EndHookError::NullEntryPoint;
 		}
 
 		unsigned int instructionCount;
@@ -440,8 +438,8 @@ namespace EngineEx
 		CodeBytes* cb = new CodeBytes;
 		cb->bytes = savedCode;
 		cb->size = saveSize;
-		Hook* endhook = new Hook(name, (DWORD)entryPoint, (DWORD)hookFunction, 0, cb->size);
-		endhook->addOverwrittenCode(retOffset, cb);
+		Hook* hook = new Hook(name, (DWORD)entryPoint, (DWORD)hookFunction, 0, cb->size, HookType::EndHook);
+		hook->addOverwrittenCode(retOffset, cb);
 
 		for (auto& ret : rets)
 		{
@@ -475,6 +473,8 @@ namespace EngineEx
 			patch->Write();
 		}
 
-		return endhook;
+		HookManager::hooks.insert(std::make_pair((uintptr_t)hook->hookFunc, *hook));
+
+		return hook;
 	};
 }

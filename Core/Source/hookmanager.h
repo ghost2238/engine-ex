@@ -44,7 +44,7 @@ namespace EngineEx
 		static std::map<std::string, VariableSymbol> variables;
 		static std::map<std::string, FunctionSymbol> functions;
 	private:
-		static Hook* CreateHook(DWORD originalFunc, DWORD handlerFunc);
+		static Hook* CreateHook(DWORD originalFunc, DWORD handlerFunc, HookType type);
 		static uintptr_t GetFreeTrampoline();
 		static std::map<uintptr_t, Hook> HookManager::hooks;
 		static std::map<uintptr_t, MemoryPatch> HookManager::patches;
