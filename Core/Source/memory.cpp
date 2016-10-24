@@ -22,6 +22,7 @@ namespace EngineEx
 
 	byte* SafeRead(DWORD address, int bytes)
 	{
+		LOG_D("Reading %d bytes starting from 0x%x", bytes, address)
 		byte* data = new byte[bytes];
 		for (int i = 0;i < bytes;i++)
 		{

@@ -1,12 +1,11 @@
 #pragma once
 
-#include <windows.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-
 #include "debug.h"
 #include "../Lib/diStorm/distorm.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <windows.h>
 
 namespace EngineEx
 {

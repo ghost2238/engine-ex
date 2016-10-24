@@ -22,7 +22,6 @@ namespace EngineEx
 			fs = std::ofstream(filename, std::ios_base::app);
 
 		Log::OpenConsole();
-
 		Log::Info(LogModule::Global, "Initialized loggging");
 	}
 
@@ -40,17 +39,10 @@ namespace EngineEx
 
 		struct tm timeinfo;
 		auto time = localtime_s(&timeinfo, &t);
-		
-
-		/*fmt::Color c;
-		     if (level == LoggingLevel::Debug) c = fmt::Color::YELLOW;
-		else if (level == LoggingLevel::Error) c = fmt::Color::RED;
-		else if (level == LoggingLevel::Info)  c = fmt::Color::WHITE;
-		else if (level == LoggingLevel::Trace) c = fmt::Color::WHITE;*/
 
 		char* mod = "Global";
 		if (module == LogModule::Hooking) mod = "Hooking";
-		else if (module == LogModule::Memory)  mod = "Memory";
+		else if (module == LogModule::Memory) mod = "Memory";
 		else if (module == LogModule::Utils)  mod = "Utils";
 
 		auto str = fmt::format("{0} [{1}] {2} \n", std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S"), mod, text);

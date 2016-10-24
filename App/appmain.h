@@ -6,7 +6,6 @@ using namespace EngineEx;
 // App specific stuff here
 #include "offsets.h"
 #include "hooks.h"
-#include "Game/foclient.h"
 
 #include <windows.h>
 #include <stdio.h>

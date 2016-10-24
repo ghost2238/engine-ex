@@ -5,6 +5,7 @@ namespace EngineEx
 	std::map<uintptr_t, Hook> HookManager::hooks;
 	std::set<uintptr_t> HookManager::freeTrampolines;
 	std::map<uintptr_t, MemoryPatch> HookManager::patches;
+	std::map<std::string, FunctionSymbol> HookManager::functionSymbols;
 
 	#define LOG_D(...) Log::Debug(LogModule::Hooking, __VA_ARGS__);
 	#define LOG_E(...) Log::Error(LogModule::Hooking, __VA_ARGS__);
@@ -34,29 +35,47 @@ namespace EngineEx
 			HookManager::freeTrampolines.insert(i);
 
 		LOG_T("Filled trampoline buffer with %d elements.", HookManager::freeTrampolines.size());
+
+		LOG_D("Reading JSON symbolstable.");
+		auto symbols = readJsonSymbols();
+		for (auto &symbol : *symbols)
+		{
+			if (symbol.name.empty())
+			{
+				LOG_D("Skipping function with empty name.");
+				continue;
+			}
+			HookManager::functionSymbols[symbol.name.c_str()] = symbol;
+		}
+		LOG_D("Loaded %d functions", symbols->size());
+
+		if(symbols->size() != HookManager::functionSymbols.size())
+			LOG_E("%d read, but only %d is parsed.", symbols->size(), HookManager::functionSymbols.size());
+
+		delete(symbols);
 	}
 
 	// Called by generated code
-	
 	int count;
 	DWORD lastTick;
 	void __stdcall HookManager::LogFunc(char* text)
 	{
-		count++;
+		printf("%s", text);
+		/*count++;
 		DWORD now = GetTickCount();
 		if ((now - lastTick) > 500)
 		{
 			printf("%s: has been called %d times since monitoring started.\n", text, count);
 			lastTick = now;
-		}
+		}*/
 	}
 
 	uintptr_t HookManager::GetFreeTrampoline()
 	{
 		if (HookManager::freeTrampolines.empty())
 		{
-			LOG_E("No trampoline space left!");
-			return 0;
+		LOG_E("No trampoline space left!");
+		return 0;
 		}
 		std::set<uintptr_t>::iterator it = freeTrampolines.begin();
 		uintptr_t result = *it;
@@ -90,7 +109,7 @@ namespace EngineEx
 		if (originalFunc == 0)
 			LOG_E("Original function provided is null");
 		if (handlerFunc == 0)
-			LOG_E("Original function provided is null");
+			LOG_E("Handler function provided is null");
 
 		if (originalFunc == 0 || handlerFunc == 0) return NULL;
 
@@ -104,11 +123,13 @@ namespace EngineEx
 			useAbsJump = true;
 		}
 		else offset = getMinOffset((const unsigned char*)originalFunc, NearJumpPatchSize);
-		// error while determining offset?
-		if (offset == -1) return NULL;
 
-		LOG_T("Allocing");
-		DWORD oldProtect = 0;
+		// error while determining offset?
+		if (offset == -1)
+		{
+			LOG_D("Unable to determine offset");
+			return NULL;
+		}
 
 		LOG_T("Get trampoline memory");
 		uintptr_t trampolineAddr = HookManager::GetFreeTrampoline();
@@ -119,7 +140,7 @@ namespace EngineEx
 		SafeMemCpy((void*)trampolineAddr, (void*)originalFunc, offset);
 		auto patch = new MemoryPatch(5, (uintptr_t)originalFunc);
 		auto patch2 = new MemoryPatch(5, (uintptr_t)trampolineAddr + offset);
-		if (useAbsJump) 
+		if (useAbsJump)
 		{
 			LOG_D("Need to use absolute jumps.");
 			patch->JmpAbs(handlerFunc);
@@ -149,6 +170,14 @@ namespace EngineEx
 
 		HookManager::LogStatus();
 		return hook;
+	}
+
+	Hook* HookManager::MonitorCalls(const std::string & functionName)
+	{
+		auto symbol = HookManager::functionSymbols[functionName];
+		if (symbol.name.empty())
+			return NULL;
+		return MonitorCalls((DWORD)symbol.offset, symbol.name.c_str());
 	}
 
 	Hook* HookManager::MonitorCalls(unsigned long originalFunc, const char* name)
@@ -198,13 +227,13 @@ namespace EngineEx
 		return HookManager::CreateHook(originalFunc, handlerFunc);
 	}
 
-	DWORD HookManager::GetDLLFunction(const char* dllName, const  char* funcName)
+	DWORD HookManager::GetDLLFunction(const std::string& dllName, const std::string& funcName)
 	{
 		DWORD funcPtr = NULL;
-		HMODULE hDll = LoadLibraryA(dllName);
+		HMODULE hDll = LoadLibraryA(dllName.c_str());
 		if (hDll == NULL)
 			return 0;
-		funcPtr = (DWORD)GetProcAddress(hDll, funcName);
+		funcPtr = (DWORD)GetProcAddress(hDll, funcName.c_str());
 		FreeLibrary(hDll);
 		return funcPtr;
 	}
@@ -261,18 +290,15 @@ namespace EngineEx
 
 	void HookManager::RemoveHooks()
 	{
-		// Remove hooks
 		for (auto &hook : HookManager::hooks)
-		{
-			LOG_I("Removing 0x%x hook (hooked to 0x%x)", hook.second.originalFunc, hook.second.hookFunc);
 			HookManager::RemoveHook(&hook.second);
-		}
+
 		HookManager::LogStatus();
 	}
 
 	void HookManager::RemoveHook(Hook* hook)
 	{
-		LOG_I("Removing hook of 0x%x");
+		LOG_I("Removing 0x%x hook (hooked to 0x%x)", hook->originalFunc, hook->hookFunc);
 		SafeMemCpy((void*)hook->originalFunc, (void*)hook->trampoline, hook->patchSize);
 		HookManager::hooks.erase(hook->hookFunc);
 		HookManager::freeTrampolines.insert(hook->trampoline);
@@ -304,37 +330,62 @@ namespace EngineEx
 		}
 	}
 
-	EndHookError HookManager::CreateEndHook(std::string name, DWORD entryPoint, DWORD hookFunction)
+	Hook* HookManager::CreateEndHook(const std::string& functionName, DWORD hookFunction)
+	{
+		auto symbol = HookManager::functionSymbols[functionName];
+		if (symbol.name.empty())
+		{
+			LOG_E("Symbol %s not found, unable to resolve offset.", functionName);
+			return NULL;
+		}
+		LOG_D("size: %d", HookManager::functionSymbols.size());
+
+		return HookManager::CreateEndHook(functionName, symbol.offset, hookFunction);
+	}
+
+	Hook* HookManager::CreateEndHook(std::string name, DWORD entryPoint, DWORD hookFunction)
 	{
 		if (entryPoint == 0)
 		{
 			LOG_E("Null entrypoint.");
-			return EndHookError::NullEntryPoint;
+			return NULL;
+			//return EndHookError::NullEntryPoint;
 		}
 
 		unsigned int instructionCount;
-		std::vector<_DecodedInst>* disassembled = new std::vector<_DecodedInst>();
+		std::vector<_DecodedInst> disassembled;
 
 		auto bytes = SafeRead((DWORD)entryPoint, 4096);
+		DisAssembler disAsm;
+		auto result = disAsm.DisAssemble(bytes, 4096, disassembled);
 
-		auto disAsm = new DisAssembler();
-
-		auto result = disAsm->DisAssemble(bytes, 4096, *disassembled);
-		instructionCount = disassembled->size();
+		instructionCount = disassembled.size();
 
 		bool done = false;
 		bool firstReturn = true;
 		
-
-		auto funcAnalyzer = new FunctionAnalyzer(entryPoint, *disassembled, instructionCount);
+		auto funcAnalyzer = new FunctionAnalyzer(entryPoint, disassembled);
 
 		if (funcAnalyzer->endOfFunction == 0)
 		{
 			LOG_E("Unable to find where function ends.");
-			return EndHookError::NoFunctionEnd;
+			return NULL;
 		}
 
+		bool relocationNeeded = false;
 		auto rets = funcAnalyzer->FindByMnemonic("RET");
+
+		if (rets.size() == 0)
+		{
+			LOG_D("No RET instructions found");
+			return NULL;
+		}
+
+		if (rets.size() > 1)
+		{
+			LOG_D("More than one RET instruction found, we need to relocate.");
+			relocationNeeded = true;
+		}
 
 		DWORD retOffset = ((DWORD)(funcAnalyzer->entryPoint + rets.front().offset));
 		
@@ -348,7 +399,6 @@ namespace EngineEx
 		cb->size = saveSize;
 		Hook* endhook = new Hook(name, (DWORD)entryPoint, (DWORD)hookFunction, 0, cb->size);
 		endhook->addOverwrittenCode(retOffset, cb);
-		
 
 		for (auto& ret : rets)
 		{
@@ -365,13 +415,15 @@ namespace EngineEx
 							(DWORD)funcAnalyzer->entryPoint + ret.offset);
 						LOG_D("The relocation code is not available so we need to cancel.");
 
-						auto asmCode = disAsm->GetAsm(funcAnalyzer->disassembled, i, 3);
+						relocationNeeded = true;
+
+						auto asmCode = disAsm.GetAsm(funcAnalyzer->disassembled, i, 3);
 						for (auto& line : *asmCode)
 						{
 							Log::Debug(LogModule::Hooking, "%s", line.c_str());
 						}
 
-						return EndHookError::UnableToRelocate;
+						return NULL;
 					}
 				}
 			}
@@ -379,8 +431,7 @@ namespace EngineEx
 			patch->Jmp(hookFunction);
 			patch->Write();
 		}
-		free(disassembled);
 
-		return EndHookError::Success;
+		return endhook;
 	};
 }

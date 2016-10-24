@@ -4,14 +4,14 @@
 #include "utils.h"
 #include "hook.h"
 #include "memory.h"
-#include "threading.h"
+
 #include "../Lib/fmt/format.h"
 
 #include <iostream>
 #include <set>
 #include <map>
 #include <iterator>
-#include <Windows.h>
+#include <windows.h>
 
 namespace EngineEx
 {
@@ -28,17 +28,20 @@ namespace EngineEx
 	{
 	public:
 		static void Init();
-		static void Log(const char* Text, ...);
 		static bool IsAlreadyHooked(DWORD originalFunc);
-		static DWORD GetDLLFunction(const char* dllName, const char* funcName);
+		static DWORD GetDLLFunction(const std::string& dllName, const std::string& funcName);
 		static Hook* CreateBeforeHook(unsigned long originalFunc, unsigned long handlerFunc);
-		static EndHookError CreateEndHook(std::string name, DWORD entryPoint, DWORD hookFunction);
+		static Hook* CreateEndHook(const std::string& functionName, DWORD hookFunction);
+		static Hook* CreateEndHook(std::string name, DWORD entryPoint, DWORD hookFunction);
 		static Hook* ReplaceFunction(unsigned long originalFunc, unsigned long handlerFunc);
 		static Hook* MonitorCalls(unsigned long originalFunc, const char* name);
+		static Hook* MonitorCalls(const std::string & functionName);
 		static void RemoveHook(Hook* hook);
 		static void RemoveEndHook(DWORD entryPoint);
 		static void RemoveHooks();
 		static void LogStatus();
+
+		static std::map<std::string, FunctionSymbol> functionSymbols;
 	private:
 		static Hook* CreateHook(DWORD originalFunc, DWORD handlerFunc);
 		static uintptr_t GetFreeTrampoline();

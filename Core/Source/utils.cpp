@@ -3,9 +3,14 @@
 namespace EngineEx
 {
 
-	FunctionAnalyzer::FunctionAnalyzer(DWORD entryPoint, std::vector<_DecodedInst> disassembled, unsigned int instructionCount)
+	#define LOG_D(...) Log::Debug(LogModule::Utils, __VA_ARGS__);
+	#define LOG_E(...) Log::Error(LogModule::Utils, __VA_ARGS__);
+	#define LOG_T(...) Log::Trace(LogModule::Utils, __VA_ARGS__);
+	#define LOG_I(...) Log::Info(LogModule::Utils, __VA_ARGS__);
+
+	FunctionAnalyzer::FunctionAnalyzer(DWORD entryPoint, std::vector<_DecodedInst> disassembled)
 	{
-		this->instructionCount = instructionCount;
+		this->instructionCount = disassembled.size();
 		this->entryPoint = entryPoint;
 
 		int int3Count = 0;
@@ -14,11 +19,11 @@ namespace EngineEx
 		{
 			this->disassembled.push_back(disassembled[i]);
 			auto mnemonic = (char*)disassembled[i].mnemonic.p;
-			if (strcmp(mnemonic, "INT 3") == 0)
+			if (equals(mnemonic, "INT 3"))
 			{
 				// TODO: This needs to be more strict.
 				// Checking if there is no jump to an instruction beyond the last RET found should be enough
-				Log::Debug(LogModule::Utils, "Found function end at 0x%x.\n", (DWORD)(entryPoint + disassembled[i].offset));
+				Log::Debug(LogModule::Utils, "Found function end at 0x%x.", (DWORD)(entryPoint + disassembled[i].offset));
 				this->endOfFunction = (DWORD)(entryPoint + disassembled[i].offset);
 				break;
 			}
@@ -34,10 +39,6 @@ namespace EngineEx
 				found.push_back(instruction);
 		}
 		return found;
-	}
-	_DecodedInst FunctionAnalyzer::FindFirstMnemonic(char* mnemonic)
-	{
-
 	}
 
 	DisAssembler::DisAssembler()
@@ -72,7 +73,7 @@ namespace EngineEx
 		Log::Trace(LogModule::Utils, "start: %d, end: %d, size: %d", start, end, instructions.size());
 		for (unsigned int i = start;i < end; i++)
 		{
-			lines->push_back(string_format("%-12s | %s%s%s", (char*)instructions[i].instructionHex.p,
+			lines->push_back(format("%-12s | %s%s%s", (char*)instructions[i].instructionHex.p,
 				(char*)instructions[i].mnemonic.p, instructions[i].operands.length != 0 ? " " : "",
 				(char*)instructions[i].operands.p));
 		}
@@ -249,10 +250,10 @@ namespace EngineEx
 	bool MemoryPatch::Write()
 	{
 		if (this->currentPos < this->size)
-			this->warn = string_format("Using only %d bytes but allocated %d", this->currentPos, this->size);
+			this->warn = format("Using only %d bytes but allocated %d", this->currentPos, this->size);
 		if (this->currentPos > this->size)
 		{
-			this->error = string_format("Using %d bytes but allocated only %d", this->currentPos, this->size);
+			this->error = format("Using %d bytes but allocated only %d", this->currentPos, this->size);
 			return false;
 		}
 		SafeWrite(this->address, this->data, this->size);
@@ -288,8 +289,78 @@ namespace EngineEx
 		return jmpDistance <= 0x7FFF0000 ? false : true;
 	};
 
+	void ResumeMainThread()
+	{
+		ResumeThread(GetMainThread());
+	}
 
-	void split(const std::string &s, char delim, std::vector<std::string> &elems) {
+	void SuspendMainThread()
+	{
+		SuspendThread(GetMainThread());
+	}
+
+	HANDLE GetMainThread()
+	{
+		HANDLE hThreadSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+		if (hThreadSnapshot == INVALID_HANDLE_VALUE) {
+			return 0;
+		}
+		THREADENTRY32 tEntry;
+		tEntry.dwSize = sizeof(THREADENTRY32);
+		DWORD result = 0;
+		DWORD currentPID = GetCurrentProcessId();
+		for (BOOL success = Thread32First(hThreadSnapshot, &tEntry);
+			!result && success && GetLastError() != ERROR_NO_MORE_FILES;
+			success = Thread32Next(hThreadSnapshot, &tEntry))
+		{
+			if (tEntry.th32OwnerProcessID == currentPID) {
+				result = tEntry.th32ThreadID;
+			}
+		}
+
+		return OpenThread(THREAD_SUSPEND_RESUME, false, result);
+	}
+
+	std::vector<FunctionSymbol>* readJsonSymbols()
+	{
+		Json::Value root;
+		std::ifstream stream("./symbols.json");
+
+		if (stream.is_open())
+			stream >> root;
+		else
+		{
+			Log::Error(LogModule::Global, "Error, unable to open symbols");
+			return NULL;
+		}
+		const Json::Value funcs = root["Functions"];
+
+		auto symbols = new std::vector<FunctionSymbol>;
+
+		for (unsigned int i = 0; i < funcs.size(); ++i)
+		{
+			LOG_T("Reading function symbol %d", i+1);
+			FunctionSymbol* symbol = new FunctionSymbol;
+			symbol->name = funcs[i].get("Name", "").asString();
+			LOG_T("Read name");
+			const char* off = funcs[i].get("Offset", 0).asCString();
+			int number = (int)strtol(off, NULL, 16);
+			if(number == 0) number = (int)strtol(off, NULL, 0);
+			symbol->offset = number;
+			LOG_T("Read offset");
+			symbol->returnValue = funcs[i].get("RetVal", "void").asString();
+			LOG_T("Read return value");
+			auto argStr = funcs[i].get("Args", "").asString();
+			symbol->arguments = split(argStr, ',');
+			symbols->push_back(*symbol);
+			LOG_D("[0x%x] %s %s(%s)", symbol->offset, symbol->returnValue.c_str(), symbol->name.c_str(), argStr.c_str());
+		}
+
+		return symbols;
+	}
+
+	// String functions
+	inline void split(const std::string &s, char delim, std::vector<std::string> &elems) {
 		std::stringstream ss;
 		ss.str(s);
 		std::string item;
@@ -298,23 +369,33 @@ namespace EngineEx
 		}
 	}
 
-	std::vector<std::string> split(const std::string &s, char delim) {
+	inline std::vector<std::string> split(const std::string &s, char delim) {
 		std::vector<std::string> elems;
 		split(s, delim, elems);
 		return elems;
 	}
 
-	std::string string_format(const char* fmt, ...) {
+	bool equals(const std::string &a, const std::string &b)
+	{
+		return strcmp(a.c_str(), b.c_str()) == 0;
+	}
+
+	/*bool equals(const std::string &a, char* b)
+	{
+		return strcmp(a.c_str(), b) == 0;
+	}*/
+
+	inline std::string format(const char* fmt, ...) {
 		int size = 512;
 		char* buffer = 0;
 		buffer = new char[size];
 		va_list vl;
 		va_start(vl, fmt);
 		int nsize = vsnprintf(buffer, size, fmt, vl);
-		if (size <= nsize) { //fail delete buffer and try again
+		if (size <= nsize) {
 			delete[] buffer;
 			buffer = 0;
-			buffer = new char[nsize + 1]; //+1 for /0
+			buffer = new char[nsize + 1];
 			nsize = vsnprintf(buffer, size, fmt, vl);
 		}
 		std::string ret(buffer);

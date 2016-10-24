@@ -1,9 +1,11 @@
 #pragma once
 
+#include "utils.h"
+
 #include <windows.h>
+
 #include <vector>
 #include <map>
-#include "utils.h"
 
 namespace EngineEx
 {

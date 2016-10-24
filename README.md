@@ -62,16 +62,24 @@ All of these are currently done using detour-style hooks where a JMP is written 
 - [ ] Embedded HTTP server to facilitate UI. [Kore](https://github.com/jorisvink/kore) looks good.
 - [ ] Scripting language, both for exposing your API and EngineEx internals.
 - [ ] Patcher to patch exe with LoadLibrary on disk so that DLL is autoloaded by the target application.
-- [ ] Dump specific registers at target instruction offset.
+- [ ] Dump registers/stack at target instruction offset.
 - [ ] Read symbols from JSON file.
+  - [X] Functions
+  - [ ] Classes, ability to call hook functions with ClassName::FunctionName
+  - [ ] Variables
 - [ ] Read symbols from PDB.
 - [ ] Relocating functions to another other place in memory.
 - [ ] Proper jump relocation
+- [ ] x64 support
+- [ ] Linux support
+  - [ ] GCC Compilation
+  - [ ] Makefile
+  - [ ] .so injection
 
 ## Considering
 - Use of Frida core as it has a lot of really advanced hooking functionality already.
-- Switch to the Keystone framework for machine code generation.
-- Switch to Capstone for the disassembly parts.
+- Keystone framework for machine code generation.
+- Capstone for the disassembly parts.
 
 ## Directories
 | Directory  | Purpose |

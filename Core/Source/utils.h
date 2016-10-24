@@ -1,5 +1,7 @@
 #pragma once
 
+#include <windows.h>
+#include <tlhelp32.h>
 #include <string>
 #include <cstdarg>
 #include <sstream>
@@ -7,11 +9,10 @@
 #include "windows.h"
 #include "memory.h"
 #include "debug.h"
+#include "../Lib/JsonCPP/json.h"
 
 namespace EngineEx
 {
-	std::string string_format(const char* fmt, ...);
-
 	enum CallingConvention
 	{
 		c_decl, // cdecl
@@ -26,21 +27,43 @@ namespace EngineEx
 		short size;
 	};
 
+	struct FunctionSymbol
+	{
+		std::string name;
+		DWORD offset;
+		std::string returnValue;
+		std::vector<std::string> arguments;
+		CallingConvention callingConvention;
+	};
+
 	class Asm
 	{
 		public:
 			//char* FromString(char* string);
 	};
 
+	// String functions
+	inline void split(const std::string &s, char delim, std::vector<std::string> &elems);
+	inline std::vector<std::string> split(const std::string &s, char delim);
+	bool equals(const std::string &a, const std::string &b);
+	//bool equals(const std::string &a, char* b);
+	inline std::string format(const char* fmt, ...);
+
+	// Misc, maybe move these somewhere
 	bool requiresAbsJump(uintptr_t from, uintptr_t to);
 	int getMinOffset(const unsigned char* codePtr, unsigned int jumpPatchSize);
+	std::vector<FunctionSymbol>* readJsonSymbols();
+	
+	// Threading
+	void ResumeMainThread();
+	void SuspendMainThread();
+	HANDLE GetMainThread();
 
 	class FunctionAnalyzer
 	{
 		public:
-			FunctionAnalyzer(DWORD entryPoint, std::vector<_DecodedInst> disassembled, unsigned int instructionCount);
+			FunctionAnalyzer(DWORD entryPoint, std::vector<_DecodedInst> disassembled);
 			std::vector<_DecodedInst> FindByMnemonic(char* mnemonic);
-			_DecodedInst FindFirstMnemonic(char* mnemonic);
 
 			DWORD entryPoint;
 			DWORD endOfFunction;

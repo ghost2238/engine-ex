@@ -5,14 +5,11 @@
 
 bool AppMain()
 {
-	HookManager::ReplaceFunction(HookManager::GetDLLFunction("User32", "MessageBoxA"), (DWORD)&MsgBoxA);
-	MessageBoxA(0, "Calling MessageBoxA... this should be only be visible in console.", "Test", 0);
+	//HookManager::ReplaceFunction(HookManager::GetDLLFunction("User32", "MessageBoxA"), (DWORD)&MsgBoxA);
+	//MessageBoxA(0, "Calling MessageBoxA... this should be only be visible in console.", "Test", 0);
 
 	//HookManager::MonitorCalls((DWORD)Offset_FOClient_AddMess, "FOClient_AddMess");
 	//HookManager::MonitorCalls((DWORD)Offset_WriteLog, "WriteLog");
-
-
-	FoClient = ((FOClient*)((DWORD)Static_FoClient));
 
 	/*
 	HookManager::RemoveHook(hook);
@@ -22,10 +19,20 @@ bool AppMain()
 	HookManager::RemoveHook(hook);
 	HookManager::RemoveHook(hook);
 	*/
-	
-	auto before = HookManager::CreateBeforeHook((DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest2);
-	auto hook = HookManager::ReplaceFunction(before->hookFunc, (DWORD)&AddMessTest);
-	auto monitor = HookManager::MonitorCalls(hook->hookFunc,  "hehe");
+
+	// Uses JSON symbol table to resolve the offset.
+	auto draw = HookManager::CreateEndHook("FOClient_ConsoleDraw", (DWORD)&OnDrawConsole);
+
+	auto a = HookManager::MonitorCalls("FOClient_AddMess");
+
+	//HookManager::CreateBeforeHook((DWORD)Offset_SpriteManager_DrawStr, (DWORD)&StringFinder);
+
+	//auto before = HookManager::CreateBeforeHook((DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest2);
+
+	//auto end = HookManager::CreateEndHook("", (DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest);
+	//auto hook = HookManager::ReplaceFunction(before->hookFunc, (DWORD)&AddMessTest);
+	//auto monitor = HookManager::MonitorCalls(hook->hookFunc,  "hehe");
+
 	/*
 	hook = HookManager::ReplaceFunction((DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest);
 	hook = HookManager::ReplaceFunction((DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest);

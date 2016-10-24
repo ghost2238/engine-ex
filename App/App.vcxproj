@@ -133,7 +133,6 @@
   <ItemGroup>
     <ClInclude Include="appmain.h" />
     <ClInclude Include="Game\defines.h" />
-    <ClInclude Include="Game\foclient.h" />
     <ClInclude Include="hooks.h" />
     <ClInclude Include="offsets.h" />
     <ClInclude Include="structures.h" />
@@ -141,9 +140,7 @@
   <ItemGroup>
     <ClCompile Include="appmain.cpp" />
     <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="Game\foclient.cpp" />
     <ClCompile Include="hooks.cpp" />
-    <ClCompile Include="offsets.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

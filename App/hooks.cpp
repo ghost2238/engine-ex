@@ -1,27 +1,24 @@
 #include "hooks.h"
 
-char* filestr;
-char* netstr;
-char* logstr;
-int id;
-int num;
-int lookType;
-CritterCl* cr;
-
-bool done = false;
 bool firstDraw = true;
-char args[10][40];
 
-#define DRAW_DEBUGTEXT(__text, ...) foclient_drawText(10, textY, FT_BORDERED, "FF00FF00", 8,  __text, __VA_ARGS__); textY = textY+30;
-void OnDrawGame()
+typedef void(__thiscall *FOClient_AddMess)(int, int, const char*);
+void AddLogMessage(int type, char* str)
+{
+	auto func = HookManager::functionSymbols["FOClient_AddMess"];
+	FOClient_AddMess f = (FOClient_AddMess)(func.offset);
+	int foclient = *(int*)0x02F914A0;
+	f(foclient, type, str);	
+}
+
+void OnDrawConsole()
 {
 	int textY = 10;
 	if (firstDraw)
 	{
-		foclient_writeToLog(MSGTYPE_DOT_RED, "Loaded FOClientEx.");
+		AddLogMessage(MSGTYPE_DOT_RED, "Loaded EngineEx in FOnline.");
 		firstDraw = false;
 	}
-	DRAW_DEBUGTEXT("|0xFF00FF00 It's working!");
 }
 
 char* __stdcall GetMsgTest(int id, int dummy)
@@ -36,16 +33,21 @@ int __stdcall MsgBoxA(HWND hWnd, LPCTSTR lpText, LPCTSTR lpCaption, UINT uType)
 	return 0;
 }
 
+void __fastcall StringFinder(const char* t1, const char* t2, const char* t3, const char* t4, const char* t5, const char* t6)
+{
+	if (rand() % 30 == 0)
+		printf("%s\n", t2);
+	//if (rand() % 30 == 0)
+	//	printf("no crash");
+}
+
 void __stdcall AddMessTest2(int msgType, const char* text)
 {
-	printf("I should be called before!\n");
+	//printf("%s\n", text);
 }
 
 void __stdcall AddMessTest(int msgType, const char* text)
 {
-	//int r_ecx;
-	//{ __asm mov r_ecx, ecx }
-
 	printf("%s\n", text);
 
 	// FOClient->AddMess(int, char*)
@@ -62,6 +64,5 @@ void __stdcall AddMessTest(int msgType, const char* text)
 
 void __stdcall OnWriteFileLog(char* logLine, int dummy)
 {
-	//EventHandler::OnWriteFileLog(logLine);
-	foclient_writeToLog(MSGTYPE_DOT_RED, logLine);
+	AddLogMessage(MSGTYPE_DOT_LIGHTGREEN, logLine);
 }

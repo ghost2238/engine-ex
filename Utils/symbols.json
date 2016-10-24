@@ -1,0 +1,16 @@
+{
+  "Functions": [
+    {
+      "Name": "WriteLog",
+      "Offset": "0x004FCE80",
+      "Retval": "void",
+      "Args": ""
+    },
+    {
+      "Name": "FileWrite",
+      "Offset": "0x004205D0",
+      "Retval": "void",
+      "Args": ""
+    }
+  ]
+}

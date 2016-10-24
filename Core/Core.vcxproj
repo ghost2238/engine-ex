@@ -122,9 +122,9 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Build FOnlineDir|Win32'">
     <ClCompile>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>MinSpace</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>false</OmitFramePointers>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -169,8 +169,6 @@
     <ClInclude Include="Source\hook.h" />
     <ClInclude Include="Source\hookmanager.h" />
     <ClInclude Include="Source\memory.h" />
-    <ClInclude Include="Source\offsetmacros.h" />
-    <ClInclude Include="Source\threading.h" />
     <ClInclude Include="Source\utils.h" />
   </ItemGroup>
   <ItemGroup>
@@ -193,7 +191,6 @@
     <ClCompile Include="Source\hook.cpp" />
     <ClCompile Include="Source\hookmanager.cpp" />
     <ClCompile Include="Source\memory.cpp" />
-    <ClCompile Include="Source\threading.cpp" />
     <ClCompile Include="Source\utils.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

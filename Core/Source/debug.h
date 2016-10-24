@@ -5,10 +5,9 @@
 
 #include <fstream>
 #include <stdio.h>
-#include <cstdarg>
-#include <iomanip>
+#include <stdarg.h>
 #include <ctime>
-#include <time.h>
+#include <iomanip>
 #include <windows.h>
 
 namespace EngineEx
@@ -37,6 +36,7 @@ namespace EngineEx
 			static char* filename;
 			static bool logToFile;
 			static FILE* stdfile;
+			static FILE* logfile;
 
 			static void OpenConsole();
 			static void Init(LoggingLevel level, bool logToFile, char* filename);
