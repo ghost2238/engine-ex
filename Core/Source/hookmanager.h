@@ -30,11 +30,15 @@ namespace EngineEx
 		static void Init();
 		static bool IsAlreadyHooked(DWORD originalFunc);
 		static DWORD GetDLLFunction(const std::string& dllName, const std::string& funcName);
-		static Hook* CreateBeforeHook(unsigned long originalFunc, unsigned long handlerFunc);
-		static Hook* CreateEndHook(const std::string& functionName, DWORD hookFunction);
-		static Hook* CreateEndHook(std::string name, DWORD entryPoint, DWORD hookFunction);
-		static Hook* ReplaceFunction(unsigned long originalFunc, unsigned long handlerFunc);
-		static Hook* MonitorCalls(unsigned long originalFunc, const char* name);
+		static Hook* HookFunction(DWORD originalFunc, DWORD handlerFunc, HookType type);
+		static Hook* HookFunction(DWORD originalFunc, DWORD handlerFunc, HookType type, HookMethod method);
+		static Hook* HookFunction(const std::string& name, DWORD originalFunc, DWORD handlerFunc, HookType type, HookMethod method);
+		static Hook* HookFunction(const std::string& functionName, DWORD handlerFunc, HookType type, HookMethod method);
+		static Hook* HookFunction(const std::string& functionName, DWORD handlerFunc, HookType type);
+		static Hook* ReturnHook(const std::string& functionName, DWORD handlerFunc);
+		static Hook* ReturnHook(const std::string& functionName, DWORD entryPoint, DWORD handlerFunc);
+
+		static Hook* MonitorCalls(unsigned long originalFunc);
 		static Hook* MonitorCalls(const std::string & functionName);
 		static void RemoveHook(Hook* hook);
 		static void RemoveEndHook(DWORD entryPoint);
@@ -44,11 +48,13 @@ namespace EngineEx
 		static std::map<std::string, VariableSymbol> variables;
 		static std::map<std::string, FunctionSymbol> functions;
 	private:
-		static Hook* CreateHook(DWORD originalFunc, DWORD handlerFunc, HookType type);
+		static Hook* DetourHook(DWORD originalFunc, DWORD handlerFunc, HookType type);
 		static uintptr_t GetFreeTrampoline();
 		static std::map<uintptr_t, Hook> HookManager::hooks;
 		static std::map<uintptr_t, MemoryPatch> HookManager::patches;
 		static std::set<uintptr_t> freeTrampolines;
+
 		static void __stdcall LogFunc(char* text);
+		static void __stdcall Disable();
 	};
 }

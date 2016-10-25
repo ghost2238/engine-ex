@@ -3,7 +3,7 @@
 #include "hook.h"
 #include "hookmanager.h"
 
-#include "Config/configmanager.h"
+#include "config.h"
 
 #include "utils.h"
 #include "memory.h"

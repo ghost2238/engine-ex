@@ -97,7 +97,7 @@ namespace EngineEx
 			void AddAdress(DWORD adress);
 			std::vector<std::string>* MemoryPatch::GetAsm();
 
-			void Call(DWORD to);
+			void Before(DWORD to);
 			void Jmp(DWORD to);
 			void JmpAbs(DWORD adress);
 			void Push(DWORD adress);

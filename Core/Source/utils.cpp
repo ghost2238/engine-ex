@@ -139,7 +139,7 @@ namespace EngineEx
 		this->AddAdress(adress);
 	}
 
-	void MemoryPatch::Call(DWORD adress)
+	void MemoryPatch::Before(DWORD adress)
 	{
 		this->Add(0xE8);
 		this->AddAdress(adress - this->address - this->currentPos - 4);

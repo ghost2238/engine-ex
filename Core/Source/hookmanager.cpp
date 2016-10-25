@@ -37,10 +37,8 @@ namespace EngineEx
 
 		LOG_T("Filled trampoline buffer with %d elements.", HookManager::freeTrampolines.size());
 
-		LOG_D("Reading JSON symbolstable.");
-		
+		LOG_D("Reading symbols from JSON file.");
 		std::ifstream stream("./symbols.json");
-
 		if (!stream.is_open())
 		{
 			Log::Error(LogModule::Global, "Error, unable to open ./symbols.json");
@@ -114,12 +112,14 @@ namespace EngineEx
 		}*/
 	}
 
+	void __stdcall HookManager::Disable() { }
+
 	uintptr_t HookManager::GetFreeTrampoline()
 	{
 		if (HookManager::freeTrampolines.empty())
 		{
-		LOG_E("No trampoline space left!");
-		return 0;
+			LOG_E("No trampoline space left!");
+			return 0;
 		}
 		std::set<uintptr_t>::iterator it = freeTrampolines.begin();
 		uintptr_t result = *it;
@@ -139,7 +139,38 @@ namespace EngineEx
 		return false;
 	}
 
-	Hook* HookManager::CreateHook(DWORD originalFunc, DWORD handlerFunc, HookType type)
+	Hook* HookManager::MonitorCalls(const std::string & functionName)
+	{
+		auto symbol = HookManager::functions[functionName];
+		if (symbol.name.empty())
+			return NULL;
+		return HookManager::HookFunction(symbol.name, symbol.offset, NULL, HookType::Monitor, HookMethod::Detours);
+	}
+
+	Hook* HookManager::HookFunction(DWORD originalFunc, DWORD handlerFunc, HookType type, HookMethod method)
+	{
+		return HookManager::HookFunction("", originalFunc, handlerFunc, type, method);
+	}
+
+	Hook* HookManager::HookFunction(DWORD originalFunc, DWORD handlerFunc, HookType type)
+	{
+		return HookManager::HookFunction("", originalFunc, handlerFunc, type, HookMethod::Detours);
+	}
+
+	Hook* HookManager::HookFunction(const std::string& functionName, DWORD handlerFunc, HookType type)
+	{
+		return HookManager::HookFunction(functionName, handlerFunc, type, HookMethod::Detours);
+	}
+
+	Hook* HookManager::HookFunction(const std::string& functionName, DWORD handlerFunc, HookType type, HookMethod method)
+	{
+		auto symbol = HookManager::functions[functionName];
+		if (symbol.name.empty())
+			return NULL;
+		return HookManager::HookFunction(symbol.name, symbol.offset, handlerFunc, type, method);
+	}
+
+	Hook* HookManager::HookFunction(const std::string& name, DWORD originalFunc, DWORD handlerFunc, HookType type, HookMethod method)
 	{
 		for (auto& kv : HookManager::hooks)
 		{
@@ -149,7 +180,103 @@ namespace EngineEx
 				return &kv.second;
 			}
 		}
+		std::string typeStr = "";
+		if (type == HookType::Before) typeStr = "Before hooking ";
+		if (type == HookType::Return) typeStr = "Return hooking ";
+		if (type == HookType::Replace) typeStr = "Replacing ";
 
+		if (type != HookType::Monitor)
+			LOG_I("%s 0x%x %s with handler function 0x%x", typeStr.c_str(), (DWORD)originalFunc, name.c_str(), (DWORD)handlerFunc)
+		else
+			LOG_I("Adding monitoring call for %s (%x0x)", name, originalFunc);
+
+		if (type == HookType::Return)
+		{
+			return HookManager::ReturnHook(name, originalFunc, handlerFunc);
+		}
+		else if (type == HookType::Monitor)
+		{
+			char* text = new char[255];
+			snprintf(text, 255, "%s (0x%X2) was called.\n\0", name.c_str(), (DWORD)originalFunc);
+
+			auto patch = new MemoryPatch(17);
+			if (patch->address == 0)
+			{
+				LOG_E("Unable to allocate code.");
+				return NULL;
+			}
+			DWORD logFunc = (DWORD)&HookManager::LogFunc;
+			DWORD trampoline = HookManager::GetFreeTrampoline();
+			LOG_T("Trampoline is 0x%x.", DWORD(trampoline));
+
+			patch->Add(0x60); // PUSHAD
+			patch->Push(*(PDWORD)&text);
+			patch->Before(logFunc);
+			patch->Add(0x61); // POPAD
+			patch->Jmp(trampoline);
+
+			std::vector<std::string>* asmCode = patch->GetAsm();
+			LOG_D("Generated code:");
+			for (auto s : *asmCode)
+			{
+				Log::Debug(LogModule::Hooking, "%s", s);
+			}
+			if (!patch->Write())
+			{
+				Log::Error(LogModule::Hooking, "%s", patch->error.c_str());
+				return NULL;
+			}
+			if (patch->warn.length() != 0)
+				Log::Debug(LogModule::Hooking, "Warn: %s", patch->error.c_str());
+
+			handlerFunc = trampoline;
+		}
+		else if (type == HookType::Before)
+		{
+			// Call handler before original func while preserving registers for the original function 
+			// (and with right calling convention stack will be fine after).
+			DWORD trampoline = HookManager::GetFreeTrampoline();
+			if (trampoline == NULL)
+				return NULL;
+
+			// 4 * 8 for all registers
+			DWORD regspace = Allocate(32);
+
+			auto patch = new MemoryPatch(150);
+			auto convention = CallingConvention::stdcall;
+
+			patch->SaveRegisters(regspace);
+			patch->Before(handlerFunc);
+			patch->RestoreRegisters(regspace);
+			patch->Jmp(trampoline);
+
+			std::vector<std::string>* asmCode = patch->GetAsm();
+			LOG_D("Generated code:");
+			for (auto s : *asmCode)
+			{
+				LOG_D("%s", s);
+			}
+			if (!patch->Write())
+			{
+				LOG_E("%s", patch->error.c_str());
+				return 0;
+			}
+			if (patch->warn.length() != 0)
+				LOG_D("Warn: %s", patch->error.c_str());
+			auto address = patch->address;
+			HookManager::patches.insert(std::make_pair(address, *patch));
+
+			handlerFunc = patch->address;
+		}
+
+		if(type == HookMethod::Detours)
+			return HookManager::DetourHook(originalFunc, handlerFunc, type);
+
+		return NULL;
+	}
+
+	Hook* HookManager::DetourHook(DWORD originalFunc, DWORD handlerFunc, HookType type)
+	{
 		if (originalFunc == 0)
 			LOG_E("Original function provided is null");
 		if (handlerFunc == 0)
@@ -216,61 +343,6 @@ namespace EngineEx
 		return hook;
 	}
 
-	Hook* HookManager::MonitorCalls(const std::string & functionName)
-	{
-		auto symbol = HookManager::functions[functionName];
-		if (symbol.name.empty())
-			return NULL;
-		return MonitorCalls((DWORD)symbol.offset, symbol.name.c_str());
-	}
-
-	Hook* HookManager::MonitorCalls(unsigned long originalFunc, const char* name)
-	{
-		char* text = new char[255];
-		snprintf(text, 255, "%s (0x%X2) was called.\n\0", name, (DWORD)originalFunc);
-
-		LOG_I("Adding monitoring call for 0x%x", (DWORD)originalFunc);
-
-		auto patch = new MemoryPatch(17);
-		if (patch->address == 0)
-		{
-			LOG_E("Unable to allocate code.");
-			return NULL;
-		}
-		DWORD logFunc = (DWORD)&HookManager::LogFunc;
-		DWORD trampoline = HookManager::GetFreeTrampoline();
-		LOG_T("Trampoline is 0x%x.", DWORD(trampoline));
-
-		patch->Add(0x60); // PUSHAD
-		patch->Push(*(PDWORD)&text);
-		patch->Call(logFunc);
-		patch->Add(0x61); // POPAD
-		patch->Jmp(trampoline);
-
-		std::vector<std::string>* asmCode = patch->GetAsm();
-		LOG_D("Generated code:");
-		for (auto s : *asmCode)
-		{
-			Log::Debug(LogModule::Hooking, "%s", s);
-		}
-
-		if (!patch->Write())
-		{
-			Log::Error(LogModule::Hooking, "%s", patch->error.c_str());
-			return NULL;
-		}
-		if(patch->warn.length() != 0)
-			Log::Debug(LogModule::Hooking, "Warn: %s", patch->error.c_str());
-
-		return HookManager::CreateHook(originalFunc, patch->address, HookType::Monitor);
-	}
-
-	Hook* HookManager::ReplaceFunction(unsigned long originalFunc, unsigned long handlerFunc)
-	{
-		LOG_I("Replacing 0x%x with 0x%x", originalFunc, handlerFunc);
-		return HookManager::CreateHook(originalFunc, handlerFunc, HookType::FunctionReplacement);
-	}
-
 	DWORD HookManager::GetDLLFunction(const std::string& dllName, const std::string& funcName)
 	{
 		DWORD funcPtr = NULL;
@@ -280,56 +352,6 @@ namespace EngineEx
 		funcPtr = (DWORD)GetProcAddress(hDll, funcName.c_str());
 		FreeLibrary(hDll);
 		return funcPtr;
-	}
-
-	// Call handler before original func while preserving registers for the original function 
-	// (and with right calling convention stack will be fine after).
-	Hook* HookManager::CreateBeforeHook(unsigned long originalFunc, unsigned long handlerFunc)
-	{
-		LOG_I("Creating a before hook for 0x%x, handler function 0x%x", (DWORD)originalFunc, (DWORD)handlerFunc);
-
-		if (IsAlreadyHooked(originalFunc))
-			return NULL;
-
-		DWORD trampoline = HookManager::GetFreeTrampoline();
-		if (trampoline == NULL)
-			return NULL;
-
-		// 4 * 8 for all registers
-		DWORD regspace = Allocate(32);
-
-		auto patch = new MemoryPatch(150);
-
-		auto convention = CallingConvention::stdcall;
-		
-		patch->SaveRegisters(regspace);
-		patch->PushStackArgs(convention, 6);
-		
-		patch->Call(handlerFunc);
-		
-		patch->RestoreRegisters(regspace);
-
-		patch->Jmp(trampoline);
-
-		std::vector<std::string>* asmCode = patch->GetAsm();
-		LOG_D("Generated code:");
-		for (auto s : *asmCode)
-		{
-			LOG_D("%s", s);
-		}
-
-		if (!patch->Write())
-		{
-			LOG_E("%s", patch->error.c_str());
-			return 0;
-		}
-		if (patch->warn.length() != 0)
-			LOG_D("Warn: %s", patch->error.c_str());
-
-		auto address = patch->address;
-		HookManager::patches.insert(std::make_pair(address, *patch));
-
-		return HookManager::CreateHook(originalFunc, patch->address, HookType::BeforeHook);
 	}
 
 	void HookManager::RemoveHooks()
@@ -346,7 +368,7 @@ namespace EngineEx
 		
 		LOG_D("Removing 0x%x hook (hooked to 0x%x)", hook->originalFunc, hook->hookFunc);
 
-		if(!hook->type == HookType::EndHook)
+		if(!hook->type == HookType::Return)
 			SafeMemCpy((void*)hook->originalFunc, (void*)hook->trampoline, hook->patchSize);
 		
 		HookManager::freeTrampolines.insert(hook->trampoline);
@@ -354,7 +376,7 @@ namespace EngineEx
 		FlushInstructionCache(GetCurrentProcess(), (LPCVOID)hook->originalFunc, hook->patchSize);
 
 		// Restore other overwritten code, like in end hooks.
-		if (hook->type == HookType::EndHook)
+		if (hook->type == HookType::Return)
 		{
 			for (auto& kv : hook->overwrittenCode)
 			{
@@ -373,21 +395,14 @@ namespace EngineEx
 			HookManager::hooks.size(), HookManager::freeTrampolines.size(), HookManager::patches.size());
 	}
 
-	Hook* HookManager::CreateEndHook(const std::string& functionName, DWORD hookFunction)
+	Hook* HookManager::ReturnHook(const std::string& functionName, DWORD handlerFunc)
 	{
-		auto symbol = HookManager::functions[functionName];
-		if (symbol.name.empty())
-		{
-			LOG_E("Symbol %s not found, unable to resolve offset.", functionName);
-			return NULL;
-		}
-
-		return HookManager::CreateEndHook(functionName, symbol.offset, hookFunction);
+		return HookManager::HookFunction(functionName, handlerFunc, HookType::Return);
 	}
 
-	Hook* HookManager::CreateEndHook(std::string name, DWORD entryPoint, DWORD hookFunction)
+	Hook* HookManager::ReturnHook(const std::string& functionName, DWORD originalFunc, DWORD handlerFunc)
 	{
-		if (entryPoint == 0)
+		if (originalFunc == 0)
 		{
 			LOG_E("Null entrypoint.");
 			return NULL;
@@ -396,7 +411,7 @@ namespace EngineEx
 		unsigned int instructionCount;
 		std::vector<_DecodedInst> disassembled;
 
-		auto bytes = SafeRead((DWORD)entryPoint, 4096);
+		auto bytes = SafeRead((DWORD)originalFunc, 4096);
 		DisAssembler disAsm;
 		auto result = disAsm.DisAssemble(bytes, 4096, disassembled);
 
@@ -405,7 +420,7 @@ namespace EngineEx
 		bool done = false;
 		bool firstReturn = true;
 		
-		auto funcAnalyzer = new FunctionAnalyzer(entryPoint, disassembled);
+		auto funcAnalyzer = new FunctionAnalyzer(originalFunc, disassembled);
 
 		if (funcAnalyzer->endOfFunction == 0)
 		{
@@ -438,7 +453,7 @@ namespace EngineEx
 		CodeBytes* cb = new CodeBytes;
 		cb->bytes = savedCode;
 		cb->size = saveSize;
-		Hook* hook = new Hook(name, (DWORD)entryPoint, (DWORD)hookFunction, 0, cb->size, HookType::EndHook);
+		Hook* hook = new Hook(functionName, (DWORD)originalFunc, (DWORD)handlerFunc, 0, cb->size, HookType::Return);
 		hook->addOverwrittenCode(retOffset, cb);
 
 		for (auto& ret : rets)
@@ -469,7 +484,7 @@ namespace EngineEx
 				}
 			}
 			auto patch = new MemoryPatch(5, (DWORD)(funcAnalyzer->entryPoint + ret.offset));
-			patch->Jmp(hookFunction);
+			patch->Jmp(handlerFunc);
 			patch->Write();
 		}
 

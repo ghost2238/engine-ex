@@ -1,9 +1,9 @@
-#include "configmanager.h"
+#include "config.h"
 
 namespace EngineEx
 {
 	Json::Value root;
-	void ConfigManager::Init()
+	void Config::Init()
 	{
 		std::ifstream stream("./Core.json");
 		if(stream.is_open())
@@ -12,11 +12,10 @@ namespace EngineEx
 			Log::Error(LogModule::Global, "Error, unable to open Core.json");
 	}
 
-	Json::Value ConfigManager::GetModuleConfig(char* module, char* var) 
+	Json::Value Config::Value(const std::string value)
 	{
 		if (root == NULL) return NULL;
-
-		return root["modules"][module][var];
+		return root[value];
 	}
 
 }

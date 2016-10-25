@@ -21,7 +21,6 @@ bool AppMain()
 	*/
 
 	// Uses JSON symbol table to resolve the offset.
-	auto draw = HookManager::CreateEndHook("FOClient_ConsoleDraw", (DWORD)&OnDrawConsole);
 
 	//auto a = HookManager::MonitorCalls("FOClient_AddMess");
 
@@ -29,7 +28,6 @@ bool AppMain()
 
 	//auto before = HookManager::CreateBeforeHook((DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest2);
 
-	auto end = HookManager::CreateEndHook("FOClient_AddMess", (DWORD)&AddMessTest);
 	//auto hook = HookManager::ReplaceFunction(before->hookFunc, (DWORD)&AddMessTest);
 	//auto monitor = HookManager::MonitorCalls(hook->hookFunc,  "hehe");
 
@@ -38,7 +36,7 @@ bool AppMain()
 	hook = HookManager::ReplaceFunction((DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest);
 	hook = HookManager::ReplaceFunction((DWORD)Offset_FOClient_AddMess, (DWORD)&AddMessTest);*/
 
-	//HookManager::RemoveHook(hook);
+	//HookManager::RemoveHooks();
 	
 	while (true) { Sleep(1000); }
 	return true;

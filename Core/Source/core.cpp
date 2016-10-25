@@ -7,7 +7,7 @@ namespace EngineEx
 		void Init(LoggingLevel level, bool logToFile, char* filename)
 		{
 			Log::Init(level, logToFile, filename);
-			ConfigManager::Init();
+			Config::Init();
 			HookManager::Init();
 		}
 	}

@@ -163,7 +163,7 @@
     <ClInclude Include="Lib\fmt\time.h" />
     <ClInclude Include="Lib\JsonCPP\json-forwards.h" />
     <ClInclude Include="Lib\JsonCPP\json.h" />
-    <ClInclude Include="Source\Config\configmanager.h" />
+    <ClInclude Include="Source\config.h" />
     <ClInclude Include="Source\core.h" />
     <ClInclude Include="Source\debug.h" />
     <ClInclude Include="Source\hook.h" />
@@ -185,7 +185,7 @@
     <ClCompile Include="Lib\fmt\ostream.cc" />
     <ClCompile Include="Lib\fmt\posix.cc" />
     <ClCompile Include="Lib\JsonCPP\jsoncpp.cpp" />
-    <ClCompile Include="Source\Config\configmanager.cpp" />
+    <ClCompile Include="Source\config.cpp" />
     <ClCompile Include="Source\core.cpp" />
     <ClCompile Include="Source\debug.cpp" />
     <ClCompile Include="Source\hook.cpp" />

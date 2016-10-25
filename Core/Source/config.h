@@ -3,20 +3,21 @@
 #ifndef __CONFIGMANAGER__
 #define __CONFIGMANAGER__
 
-#include "../../Lib/JsonCPP/json.h"
-#include "../debug.h"
+#include "../Lib/JsonCPP/json.h"
+#include "debug.h"
 
 #include <fstream>
 #include <windows.h>
 #include <stdio.h>
+#include <string>
 
 namespace EngineEx
 {
-	class ConfigManager
+	class Config
 	{
 	public:
 		static void Init();
-		static Json::Value ConfigManager::GetModuleConfig(char* module, char* var);
+		static Json::Value Config::Value(const std::string value);
 	};
 }
 

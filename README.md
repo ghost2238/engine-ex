@@ -11,7 +11,7 @@ You will still need to do the hard work of reverse engineering the data structur
 ## Why?
 Mostly for learning, but the if the project comes long enough, it may be actually useful for something.
 
-Yes, I know about [other hooking frameworks](https://github.com/frida/frida/wiki/Comparison-of-function-hooking-libraries) which can do a lot more and works on many platforms.
+Yes, I know about [other hooking libraries](https://github.com/frida/frida/wiki/Comparison-of-function-hooking-libraries) which can do a lot more and work on many platforms.
 
 ## History
 It started as some experiments on modifying/scripting the [FOnline](http://www.moddb.com/games/fonline-2238) (a game I was involved heavily in for a few years) client with only the binary available and was called FOnlineEx.
@@ -27,7 +27,7 @@ EngineEx currently uses the following excellent libraries:
 Only Windows and x86 binaries are really supported so far. I'm still thinking of the best approach to multi-arch.
 
 ## How to build? ##
-I've only tested with Visual C++ 2015 so far. It uses some VC++ specific directives so other probably compilers won't work.
+I've only tested with Visual C++ 2015 so far. It uses some VC++ specific directives so other compilers probably won't work. It's on the TODO to make it compile on GCC/MinGW.
 
  1. Download and install [Visual Studio Community](https://www.visualstudio.com/downloads/)
  2. Open the .sln file.
@@ -37,7 +37,7 @@ Please report any issues with building.
 
 ## Current status
 Very alpha, the codebase still contains testcode for a specific game (FOnline) that I'm testing the framework with.
-Most likely it will crash if you try to use it without knowing exactly what you are doing since there's a lot of assumptions in the hooking code now, leading to different calling conventions not being handled properly.
+Most likely it will crash if you try to use it without knowing exactly what you are doing since there's a lot of assumptions in the hooking code right now.
 
 Compared to other hooking libraries, it's still very limited.
 
@@ -54,7 +54,7 @@ All of these are currently done using detour-style hooks where a JMP is written 
 ## Goals
 - Try to use libraries in source form, it should be easy to build the project.
 - The end result should be easy to redistribute (Just a DLL + loader/patcher), so that it can be used as a modding base even by non-technical people.
-- This framework is not made to facilitate cheating in multiplayer games, so there will not be any anti-cheat engine evasion code or similiar. The techniques used are very obvious for standard cheating engines.
+- This framework is not made to facilitate cheating in multiplayer games, so there will not be any anti-cheat engine evasion code or similiar. The techniques used are very obvious for standard anti-cheating engines.
 
 ## TODO
 - [X] Better interface with core library, remove macros and other ugly stuff.
@@ -67,12 +67,17 @@ All of these are currently done using detour-style hooks where a JMP is written 
   - [X] Functions
   - [ ] Classes, ability to call hook functions with ClassName::FunctionName
   - [X] Variables
+  - [ ] Tool for generating header file from symbols
 - [ ] Read symbols from PDB.
-- [ ] Relocating functions to another other place in memory.
+- [ ] Relocating functions to another place in memory.
+- [ ] Better thread safety.
+- [ ] SEH hooking
+- [ ] IAT hooking
 - [ ] Proper jump relocation
 - [ ] Helpers for calling functions easily
   - [ ] Ability to call functions with non-standard calling conventions.
 - [ ] Example project should be with some binary that's included in the repo.
+- [ ] Small JSON editor to add/remove data.
 - [ ] x64 support
 - [ ] Linux support
   - [ ] GCC Compilation

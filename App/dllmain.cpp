@@ -6,7 +6,7 @@ DWORD threadID;
 
 void init(HMODULE hDLL)
 {
-	EngineEx::Core::Init(LoggingLevel::Trace, true, "EngineEx.log");
+	EngineEx::Core::Init(LoggingLevel::Debug, true, "EngineEx.log");
 
 	hModule = hDLL;
 	DisableThreadLibraryCalls(hDLL);
