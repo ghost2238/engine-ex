@@ -26,6 +26,11 @@ EngineEx currently uses the following excellent libraries:
 ## Platform Support
 Only Windows and x86 binaries are really supported so far. I'm still thinking of the best approach to multi-arch.
 
+| OS  | Status |
+| ------------- | ------------- |
+| Windows 10 64-bit | Works
+| Windows 7 64-bit  | Works
+
 ## How to build? ##
 I've only tested with Visual C++ 2015 so far. It uses some VC++ specific directives so other compilers probably won't work. It's on the TODO to make it compile on GCC/MinGW.
 

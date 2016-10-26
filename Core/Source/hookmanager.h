@@ -5,8 +5,6 @@
 #include "hook.h"
 #include "memory.h"
 
-#include "../Lib/fmt/format.h"
-
 #include <iostream>
 #include <set>
 #include <map>
@@ -30,16 +28,17 @@ namespace EngineEx
 		static void Init();
 		static bool IsAlreadyHooked(DWORD originalFunc);
 		static DWORD GetDLLFunction(const std::string& dllName, const std::string& funcName);
-		static Hook* HookFunction(DWORD originalFunc, DWORD handlerFunc, HookType type);
-		static Hook* HookFunction(DWORD originalFunc, DWORD handlerFunc, HookType type, HookMethod method);
+
 		static Hook* HookFunction(const std::string& name, DWORD originalFunc, DWORD handlerFunc, HookType type, HookMethod method);
 		static Hook* HookFunction(const std::string& functionName, DWORD handlerFunc, HookType type, HookMethod method);
 		static Hook* HookFunction(const std::string& functionName, DWORD handlerFunc, HookType type);
+		static Hook* HookFunction(DWORD originalFunc, DWORD handlerFunc, HookType type);
+		static Hook* HookFunction(DWORD originalFunc, DWORD handlerFunc, HookType type, HookMethod method);
 		static Hook* ReturnHook(const std::string& functionName, DWORD handlerFunc);
 		static Hook* ReturnHook(const std::string& functionName, DWORD entryPoint, DWORD handlerFunc);
 
 		static Hook* MonitorCalls(unsigned long originalFunc);
-		static Hook* MonitorCalls(const std::string & functionName);
+		static Hook* MonitorCalls(const std::string& functionName);
 		static void RemoveHook(Hook* hook);
 		static void RemoveEndHook(DWORD entryPoint);
 		static void RemoveHooks();

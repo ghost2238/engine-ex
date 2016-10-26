@@ -2,8 +2,6 @@
 #include <stdio.h>
 #include <tlhelp32.h>
 
-#define CREATE_THREAD_ACCESS (PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ)
-
 FILE* f;
 
 BOOL FileExists(LPCTSTR szPath)
@@ -149,7 +147,7 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine,i
    Log("Opening process %s (%d)\n", process_name, processId);
    HANDLE Proc;
    LPVOID RemoteString, LoadLibraryAddress;
-   Proc = OpenProcess(CREATE_THREAD_ACCESS, FALSE, processId);
+   Proc = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, processId);
    if(!Proc)
    {
       MsgError("Error: Failed to OpenProcess handle.");

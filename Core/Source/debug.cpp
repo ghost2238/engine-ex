@@ -35,17 +35,19 @@ namespace EngineEx
 	void Log::Log_(char* text, LogModule module, int level)
 	{
 		if (level < Log::level) return;
-		std::time_t t = std::time(nullptr);
-
-		struct tm timeinfo;
-		auto time = localtime_s(&timeinfo, &t);
+		time_t rawtime;
+		struct tm * timeinfo;
+		char buffer[80];
+		time(&rawtime);
+		timeinfo = localtime(&rawtime);
+		strftime(buffer, 80, "%Y-%m-%d %H:%M:%S", timeinfo);
 
 		char* mod = "Global";
 		if (module == LogModule::Hooking) mod = "Hooking";
 		else if (module == LogModule::Memory) mod = "Memory";
 		else if (module == LogModule::Utils)  mod = "Utils";
 
-		auto str = fmt::format("{0} [{1}] {2} \n", std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S"), mod, text);
+		auto str = EngineEx::format("%s [%s] %s \n", buffer, mod, text);
 		printf(str.c_str());
 		if (Log::logToFile) { fs << str.c_str(); fs.flush(); }
 	}

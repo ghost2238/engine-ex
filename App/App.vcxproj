@@ -59,11 +59,13 @@
     <OutDir>$(SolutionDir)\__build\</OutDir>
     <IntDir>$(SolutionDir)\__build\app\</IntDir>
     <LinkIncremental>true</LinkIncremental>
+    <TargetName>EngineEx</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)\__build\</OutDir>
     <IntDir>$(SolutionDir)\__build\app\</IntDir>
     <LinkIncremental>false</LinkIncremental>
+    <TargetName>EngineEx</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Build FOnlineDir|Win32'">
     <OutDir>D:\Fallout\games\reloaded\</OutDir>

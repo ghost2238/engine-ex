@@ -1,18 +1,40 @@
 #pragma once
 
+#include "memory.h"
+#include "debug.h"
+#include "../Lib/JsonCPP/json.h"
+#include "../Lib/diStorm/distorm.h"
+
 #include <windows.h>
 #include <tlhelp32.h>
 #include <string>
 #include <cstdarg>
 #include <sstream>
 #include <vector>
-#include "windows.h"
-#include "memory.h"
-#include "debug.h"
-#include "../Lib/JsonCPP/json.h"
+
 
 namespace EngineEx
 {
+	enum Arch
+	{
+		x86_32,
+		x86_64
+	};
+
+	enum HookMethod
+	{
+		Detours
+	};
+
+	enum HookType
+	{
+		Before,
+		Return,
+		Replace,
+		Disable,
+		Monitor
+	};
+
 	enum CallingConvention
 	{
 		c_decl, // cdecl
@@ -43,11 +65,18 @@ namespace EngineEx
 		CallingConvention callingConvention;
 	};
 
-	class Asm
+	enum AsmX86
 	{
-		public:
-			//char* FromString(char* string);
+		call    = 0xE8,
+		jmp     = 0xE9,
+		jmp_abs = 0xFF
 	};
+
+	_DecodeResult DisAssemble(byte* bytes, int length, std::vector<_DecodedInst>& disassembledCode);
+	std::vector<std::string>* GetAsm(std::vector<_DecodedInst> instructions, int start, int count);
+	std::vector<std::string>* GetAsm(byte* bytes, int size);
+	bool IsBranch(_DecodedInst instruction);
+
 
 	// String functions
 	void split(const std::string &s, char delim, std::vector<std::string> &elems);
@@ -77,17 +106,6 @@ namespace EngineEx
 			unsigned int instructionCount;
 	};
 
-	class DisAssembler
-	{
-		public:
-			DisAssembler();
-			_DecodeResult DisAssemble(byte* bytes, int length, std::vector<_DecodedInst>& disassembledCode);
-			std::vector<std::string>* GetAsm(std::vector<_DecodedInst> instructions, int start, int count);
-			std::vector<std::string>* GetAsm(byte* bytes, int size);
-			bool IsBranch(_DecodedInst instruction);
-			std::string error;
-	};
-
 	class MemoryPatch
 	{
 		public:
@@ -97,7 +115,7 @@ namespace EngineEx
 			void AddAdress(DWORD adress);
 			std::vector<std::string>* MemoryPatch::GetAsm();
 
-			void Before(DWORD to);
+			void Call(DWORD to);
 			void Jmp(DWORD to);
 			void JmpAbs(DWORD adress);
 			void Push(DWORD adress);

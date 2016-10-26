@@ -9,26 +9,6 @@
 
 namespace EngineEx
 {
-	enum Arch
-	{
-		x86_32,
-		x86_64
-	};
-
-	enum HookMethod
-	{
-		Detours
-	};
-
-	enum HookType
-	{
-		Before,
-		Return,
-		Replace,
-		Disable,
-		Monitor
-	};
-
 	class Hook
 	{
 	public:

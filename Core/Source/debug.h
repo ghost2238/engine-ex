@@ -1,13 +1,10 @@
 #pragma once
 
-#include "../Lib/fmt/ostream.h"
-#include "../Lib/fmt/format.h"
+#include "utils.h"
 
 #include <fstream>
 #include <stdio.h>
-#include <stdarg.h>
-#include <ctime>
-#include <iomanip>
+#include <time.h>
 #include <windows.h>
 
 namespace EngineEx

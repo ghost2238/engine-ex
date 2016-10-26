@@ -53,14 +53,11 @@ namespace EngineEx
 				LOG_T("Reading function symbol %d", i + 1);
 				auto symbol = new FunctionSymbol;
 				symbol->name = funcs[i].get("Name", "").asString();
-				LOG_T("Read name");
 				const char* off = funcs[i].get("Offset", 0).asCString();
 				int number = (int)strtol(off, NULL, 16);
 				if (number == 0) number = (int)strtol(off, NULL, 0);
 				symbol->offset = number;
-				LOG_T("Read offset");
 				symbol->returnValue = funcs[i].get("RetVal", "void").asString();
-				LOG_T("Read return value");
 				auto argStr = funcs[i].get("Args", "").asString();
 				symbol->arguments = split(argStr, ',');
 				HookManager::functions[symbol->name] = *symbol;
@@ -76,14 +73,11 @@ namespace EngineEx
 				LOG_T("Reading variable symbol %d", i + 1);
 				auto symbol = new VariableSymbol;
 				symbol->name = vars[i].get("Name", "").asString();
-				LOG_T("Read name");
 				const char* off = vars[i].get("Offset", 0).asCString();
 				int number = (int)strtol(off, NULL, 16);
 				if (number == 0) number = (int)strtol(off, NULL, 0);
 				symbol->offset = number;
-				LOG_T("Read offset");
 				symbol->type = vars[i].get("Type", "").asString();
-				LOG_T("Read type");
 				HookManager::variables[symbol->name] = *symbol;
 				LOG_T("[0x%x] %s - %s", symbol->offset, symbol->name.c_str(), symbol->type.c_str());
 			}
@@ -139,7 +133,7 @@ namespace EngineEx
 		return false;
 	}
 
-	Hook* HookManager::MonitorCalls(const std::string & functionName)
+	Hook* HookManager::MonitorCalls(const std::string& functionName)
 	{
 		auto symbol = HookManager::functions[functionName];
 		if (symbol.name.empty())
@@ -185,10 +179,12 @@ namespace EngineEx
 		if (type == HookType::Return) typeStr = "Return hooking ";
 		if (type == HookType::Replace) typeStr = "Replacing ";
 
-		if (type != HookType::Monitor)
+		if (type != HookType::Monitor && !name.empty())
 			LOG_I("%s 0x%x %s with handler function 0x%x", typeStr.c_str(), (DWORD)originalFunc, name.c_str(), (DWORD)handlerFunc)
+		else if (type == HookType::Monitor)
+			LOG_I("Adding monitoring call for %s (%x0x)", name.c_str(), originalFunc)
 		else
-			LOG_I("Adding monitoring call for %s (%x0x)", name, originalFunc);
+			LOG_I("%s 0x%x with handler function 0x%x", typeStr.c_str(), (DWORD)originalFunc, (DWORD)handlerFunc);
 
 		if (type == HookType::Return)
 		{
@@ -211,7 +207,7 @@ namespace EngineEx
 
 			patch->Add(0x60); // PUSHAD
 			patch->Push(*(PDWORD)&text);
-			patch->Before(logFunc);
+			patch->Call(logFunc);
 			patch->Add(0x61); // POPAD
 			patch->Jmp(trampoline);
 
@@ -246,7 +242,7 @@ namespace EngineEx
 			auto convention = CallingConvention::stdcall;
 
 			patch->SaveRegisters(regspace);
-			patch->Before(handlerFunc);
+			patch->Call(handlerFunc);
 			patch->RestoreRegisters(regspace);
 			patch->Jmp(trampoline);
 
@@ -269,7 +265,7 @@ namespace EngineEx
 			handlerFunc = patch->address;
 		}
 
-		if(type == HookMethod::Detours)
+		if(method == HookMethod::Detours)
 			return HookManager::DetourHook(originalFunc, handlerFunc, type);
 
 		return NULL;
@@ -412,8 +408,8 @@ namespace EngineEx
 		std::vector<_DecodedInst> disassembled;
 
 		auto bytes = SafeRead((DWORD)originalFunc, 4096);
-		DisAssembler disAsm;
-		auto result = disAsm.DisAssemble(bytes, 4096, disassembled);
+
+		auto result = DisAssemble(bytes, 4096, disassembled);
 
 		instructionCount = disassembled.size();
 
@@ -473,7 +469,7 @@ namespace EngineEx
 
 						relocationNeeded = true;
 
-						auto asmCode = disAsm.GetAsm(funcAnalyzer->disassembled, i, 3);
+						auto asmCode = GetAsm(funcAnalyzer->disassembled, i, 3);
 						for (auto& line : *asmCode)
 						{
 							Log::Debug(LogModule::Hooking, "%s", line.c_str());
