@@ -1,5 +1,6 @@
 #pragma once
 
+#ifndef __CONFIG__
 #define __CONFIG__
 
 #include "../Lib/JsonCPP/json.h"

@@ -6,8 +6,6 @@ DWORD threadID;
 
 void init(HMODULE hDLL)
 {
-	EngineEx::Core::Init(LoggingLevel::Debug, true, "EngineEx.log");
-
 	hModule = hDLL;
 	DisableThreadLibraryCalls(hDLL);
 	CreateThread(NULL, NULL, &DLLThread, NULL, NULL, &threadID);
@@ -22,6 +20,7 @@ void finish()
 
 DWORD WINAPI DLLThread(LPVOID)
 {
+	EngineEx::Core::Init(LoggingLevel::Debug, true, "EngineEx.log");
 	AppMain();
 	finish();
     return 0;
@@ -38,7 +37,7 @@ extern "C" BOOL APIENTRY DllMain(HMODULE hDLL, DWORD Reason, LPVOID Reserved)
 		case DLL_PROCESS_DETACH:
 			break;
 		case DLL_THREAD_DETACH:
-			finish();
+			//finish();
 			break;
     }
     return TRUE;

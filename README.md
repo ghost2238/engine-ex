@@ -65,7 +65,7 @@ All of these are currently done using detour-style hooks where a JMP is written 
 - [X] Better interface with core library, remove macros and other ugly stuff.
 - [ ] Guess calling convention and number of arguments of a target function. Static/dynamic analysis.
 - [ ] Embedded HTTP server to facilitate UI. [Kore](https://github.com/jorisvink/kore) looks good.
-- [ ] Scripting language, both for exposing your API and EngineEx internals.
+- [ ] Scripting language, both for exposing your API and EngineEx internals. ChaiScript? https://github.com/ChaiScript/ChaiScript/
 - [ ] Patcher to patch exe with LoadLibrary on disk so that DLL is autoloaded by the target application.
 - [ ] Dump registers/stack at target instruction offset.
 - [ ] Read symbols from JSON file.
