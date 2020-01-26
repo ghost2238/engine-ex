@@ -14,7 +14,7 @@ Mostly for learning, but the if the project comes long enough, it may be actuall
 Yes, I know about [other hooking libraries](https://github.com/frida/frida/wiki/Comparison-of-function-hooking-libraries) which can do a lot more and work on many platforms.
 
 ## History
-It started as some experiments on modifying/scripting the [FOnline](http://www.moddb.com/games/fonline-2238) (a game I was involved heavily in for a few years) client with only the binary available and was called FOnlineEx.
+It started as some experiments with modifying/scripting the [FOnline](http://www.moddb.com/games/fonline-2238) (a game I was involved heavily in for a few years) client with only the binary available and was called FOnlineEx.
 
 ## Libraries
 EngineEx currently uses the following excellent libraries:
