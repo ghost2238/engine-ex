@@ -12,7 +12,7 @@ You will still need to do the hard work of reverse engineering the data structur
 The code is an offshoot from when I was testing some ideas by modifying/scripting the [FOnline](http://www.moddb.com/games/fonline-2238) (a game I was involved heavily with for a few years) client without using the built-in scripting language.
 
 ## Why not use something else?
-There are many other [other hooking libraries](https://github.com/frida/frida/wiki/Comparison-of-function-hooking-libraries) which are mature. You should use them.
+There are many [other hooking libraries](https://github.com/frida/frida/wiki/Comparison-of-function-hooking-libraries) which are mature. You should use them.
 
 ## Libraries
 EngineEx uses the following excellent libraries:
