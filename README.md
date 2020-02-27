@@ -36,8 +36,8 @@ I've only built it with Visual C++ 2015 so far. It uses some VC++ specific direc
  2. Open the .sln file.
  3. "Build" -> "Build Solution"
 
-## Current status
-Very alpha. Most likely it will crash if you try to use it without knowing exactly what you are doing since there's a lot of assumptions in the hooking code right now.
+## Status
+Very alpha. Most likely it will crash if you try to use it without knowing exactly what you are doing since there are many assumptions in the hooking code.
 
 Compared to other hooking libraries, it's very limited.
 
